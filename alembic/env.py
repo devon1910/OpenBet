@@ -1,3 +1,4 @@
+import os
 import sys
 from logging.config import fileConfig
 
@@ -12,6 +13,10 @@ from src.models import *  # noqa: F401, F403 - import all models for metadata
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
+# Override DB URL from environment (avoid hardcoding credentials)
+db_url = os.getenv("DATABASE_URL_SYNC", "postgresql://openbet:openbet@localhost:5433/openbet")
+config.set_main_option("sqlalchemy.url", db_url)
 
 target_metadata = Base.metadata
 

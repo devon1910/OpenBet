@@ -2,9 +2,9 @@ services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_USER: openbet
-      POSTGRES_PASSWORD: openbet
-      POSTGRES_DB: openbet
+      POSTGRES_USER: ${POSTGRES_USER:-openbet}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-openbet}
+      POSTGRES_DB: ${POSTGRES_DB:-openbet}
     ports:
       - "5433:5432"
     volumes:

@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenBet - Football Prediction Engine</title>
+    <style>
+        :root {
+            --bg: #0f1923;
+            --card: #1a2733;
+            --card-hover: #1f3040;
+            --accent: #00e676;
+            --accent-dim: #00c853;
+            --text: #e0e6ed;
+            --text-muted: #7a8a9a;
+            --border: #2a3a4a;
+            --home: #4fc3f7;
+            --draw: #ffb74d;
+            --away: #ef5350;
+            --confidence-high: #00e676;
+            --confidence-mid: #ffb74d;
+            --straight: #7c4dff;
+            --double: #00bcd4;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a2733 0%, #0f1923 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 20px 0;
+        }
+
+        .header-inner {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--accent);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: var(--bg);
+            font-weight: 800;
+        }
+
+        .logo h1 {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .logo h1 span { color: var(--accent); }
+
+        .logo p {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .date-picker {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .date-picker label {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .date-picker input[type="date"] {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .date-picker input[type="date"]:hover,
+        .date-picker input[type="date"]:focus {
+            border-color: var(--accent);
+            outline: none;
+        }
+
+        .date-picker input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
+
+        .btn {
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn:hover { background: var(--accent-dim); transform: translateY(-1px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .main {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 24px 20px;
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .status-bar h2 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .status-bar .count {
+            background: var(--card);
+            border: 1px solid var(--border);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        /* Loading spinner */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .loading.active { display: block; }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading p {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        /* Empty state */
+        .empty-state {
+            display: none;
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .empty-state.active { display: block; }
+
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.4;
+        }
+
+        .empty-state h3 {
+            font-size: 18px;
+            margin-bottom: 8px;
+            color: var(--text);
+        }
+
+        .empty-state p {
+            color: var(--text-muted);
+            font-size: 14px;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        /* Picks grid */
+        .picks-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .pick-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.2s;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .pick-card:hover {
+            border-color: var(--accent);
+            background: var(--card-hover);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .pick-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .pick-competition {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .pick-time {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .pick-match {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .team-name {
+            font-size: 15px;
+            font-weight: 600;
+            text-align: center;
+            flex: 1;
+        }
+
+        .vs {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 4px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        .pick-details {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .prob-bar {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .prob-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+
+        .prob-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .prob-label.home { color: var(--home); }
+        .prob-label.draw { color: var(--draw); }
+        .prob-label.away { color: var(--away); }
+
+        .prob-track {
+            display: flex;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            background: var(--bg);
+        }
+
+        .prob-segment {
+            transition: width 0.6s ease-out;
+        }
+
+        .prob-segment.home { background: var(--home); }
+        .prob-segment.draw { background: var(--draw); }
+        .prob-segment.away { background: var(--away); }
+
+        .pick-recommendation {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .pick-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .pick-badge.straight {
+            background: rgba(124, 77, 255, 0.15);
+            color: var(--straight);
+            border: 1px solid rgba(124, 77, 255, 0.3);
+        }
+
+        .pick-badge.double {
+            background: rgba(0, 188, 212, 0.15);
+            color: var(--double);
+            border: 1px solid rgba(0, 188, 212, 0.3);
+        }
+
+        .confidence-meter {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .confidence-bar-bg {
+            width: 80px;
+            height: 6px;
+            background: var(--bg);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .confidence-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.6s ease-out;
+        }
+
+        .confidence-text {
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .confidence-high { color: var(--confidence-high); }
+        .confidence-high .confidence-bar-fill { background: var(--confidence-high); }
+        .confidence-mid { color: var(--confidence-mid); }
+        .confidence-mid .confidence-bar-fill { background: var(--confidence-mid); }
+
+        .pick-reasoning {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        /* Error state */
+        .error-state {
+            display: none;
+            text-align: center;
+            padding: 40px 20px;
+            background: rgba(239, 83, 80, 0.08);
+            border: 1px solid rgba(239, 83, 80, 0.2);
+            border-radius: 12px;
+        }
+
+        .error-state.active { display: block; }
+
+        .error-state p {
+            color: var(--away);
+            font-size: 14px;
+        }
+
+        @media (max-width: 600px) {
+            .header-inner { flex-direction: column; align-items: flex-start; }
+            .pick-match { flex-direction: column; gap: 8px; }
+            .team-name { font-size: 14px; }
+            .prob-bar { min-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-inner">
+            <div class="logo">
+                <div class="logo-icon">OB</div>
+                <div>
+                    <h1>Open<span>Bet</span></h1>
+                    <p>Football Prediction Engine</p>
+                </div>
+            </div>
+            <div class="date-picker">
+                <label for="matchDate">Match Date</label>
+                <input type="date" id="matchDate">
+                <button class="btn" id="fetchBtn" onclick="fetchPicks()">Get Predictions</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="status-bar" id="statusBar" style="display:none;">
+            <h2 id="statusTitle">Predictions</h2>
+            <span class="count" id="statusCount">0 picks</span>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Running prediction engine...</p>
+        </div>
+
+        <div class="empty-state" id="emptyState">
+            <div class="empty-icon">&#9917;</div>
+            <h3>No available games on this date</h3>
+            <p>There are no matches scheduled for the selected date. Please pick another date or check back later.</p>
+        </div>
+
+        <div class="error-state" id="errorState">
+            <p id="errorMessage">Something went wrong.</p>
+        </div>
+
+        <div class="picks-grid" id="picksGrid"></div>
+    </main>
+
+    <script>
+        const dateInput = document.getElementById('matchDate');
+        const today = new Date().toISOString().split('T')[0];
+        dateInput.value = today;
+
+        // Auto-fetch on page load
+        window.addEventListener('DOMContentLoaded', fetchPicks);
+
+        // Fetch on date change
+        dateInput.addEventListener('change', fetchPicks);
+
+        async function fetchPicks() {
+            const date = dateInput.value;
+            if (!date) return;
+
+            const loading = document.getElementById('loading');
+            const emptyState = document.getElementById('emptyState');
+            const errorState = document.getElementById('errorState');
+            const picksGrid = document.getElementById('picksGrid');
+            const statusBar = document.getElementById('statusBar');
+            const btn = document.getElementById('fetchBtn');
+
+            // Reset UI
+            loading.classList.add('active');
+            emptyState.classList.remove('active');
+            errorState.classList.remove('active');
+            picksGrid.innerHTML = '';
+            statusBar.style.display = 'none';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(`/picks/date/${date}`);
+                const data = await response.json();
+
+                loading.classList.remove('active');
+                btn.disabled = false;
+
+                if (data.error) {
+                    errorState.classList.add('active');
+                    document.getElementById('errorMessage').textContent = data.error;
+                    return;
+                }
+
+                if (!data.picks || data.picks.length === 0) {
+                    emptyState.classList.add('active');
+                    return;
+                }
+
+                // Show status bar
+                const displayDate = new Date(date + 'T00:00:00').toLocaleDateString('en-US', {
+                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+                });
+                document.getElementById('statusTitle').textContent = `Predictions for ${displayDate}`;
+                document.getElementById('statusCount').textContent = `${data.count} pick${data.count !== 1 ? 's' : ''}`;
+                statusBar.style.display = 'flex';
+
+                // Render picks with staggered animation
+                data.picks.forEach((pick, index) => {
+                    setTimeout(() => {
+                        picksGrid.appendChild(createPickCard(pick));
+                    }, index * 80);
+                });
+
+            } catch (err) {
+                loading.classList.remove('active');
+                btn.disabled = false;
+                errorState.classList.add('active');
+                document.getElementById('errorMessage').textContent =
+                    'Failed to connect to the prediction engine. Make sure the server is running.';
+            }
+        }
+
+        function createPickCard(pick) {
+            const card = document.createElement('div');
+            card.className = 'pick-card';
+
+            const probHome = pick.probabilities?.home_win ?? 0;
+            const probDraw = pick.probabilities?.draw ?? 0;
+            const probAway = pick.probabilities?.away_win ?? 0;
+
+            const homePercent = (probHome * 100).toFixed(1);
+            const drawPercent = (probDraw * 100).toFixed(1);
+            const awayPercent = (probAway * 100).toFixed(1);
+
+            const confidencePercent = (pick.confidence * 100).toFixed(1);
+            const isHighConfidence = pick.confidence >= 0.7;
+            const confClass = isHighConfidence ? 'confidence-high' : 'confidence-mid';
+
+            const isStraight = pick.pick_type === 'STRAIGHT_WIN';
+            const badgeClass = isStraight ? 'straight' : 'double';
+            const badgeLabel = isStraight ? 'Straight Win' : 'Double Chance';
+
+            let pickDisplay = pick.pick_value;
+            if (pick.pick_value === 'HOME') pickDisplay = pick.home_team;
+            else if (pick.pick_value === 'AWAY') pickDisplay = pick.away_team;
+            else if (pick.pick_value === '1X') pickDisplay = `${pick.home_team} or Draw`;
+            else if (pick.pick_value === 'X2') pickDisplay = `Draw or ${pick.away_team}`;
+
+            card.innerHTML = `
+                <div class="pick-header">
+                    <span class="pick-competition">${pick.competition || ''}</span>
+                    <span class="pick-time">${pick.kick_off || ''}</span>
+                </div>
+                <div class="pick-match">
+                    <span class="team-name">${pick.home_team}</span>
+                    <span class="vs">VS</span>
+                    <span class="team-name">${pick.away_team}</span>
+                </div>
+                <div class="pick-details">
+                    <div class="prob-bar">
+                        <div class="prob-labels">
+                            <span class="prob-label home">${homePercent}%</span>
+                            <span class="prob-label draw">${drawPercent}%</span>
+                            <span class="prob-label away">${awayPercent}%</span>
+                        </div>
+                        <div class="prob-track">
+                            <div class="prob-segment home" style="width:${homePercent}%"></div>
+                            <div class="prob-segment draw" style="width:${drawPercent}%"></div>
+                            <div class="prob-segment away" style="width:${awayPercent}%"></div>
+                        </div>
+                    </div>
+                    <div class="pick-recommendation">
+                        <span class="pick-badge ${badgeClass}">${badgeLabel}: ${pickDisplay}</span>
+                        <div class="confidence-meter ${confClass}">
+                            <div class="confidence-bar-bg">
+                                <div class="confidence-bar-fill" style="width:${confidencePercent}%"></div>
+                            </div>
+                            <span class="confidence-text">${confidencePercent}%</span>
+                        </div>
+                    </div>
+                </div>
+                ${pick.reasoning ? `<div class="pick-reasoning">${pick.reasoning}</div>` : ''}
+            `;
+
+            return card;
+        }
+    </script>
+</body>
+</html>

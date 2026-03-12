@@ -3,425 +3,341 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OpenBet - Football Prediction Engine</title>
+    <title>OpenBet - Football Predictions</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0f1923;
-            --card: #1a2733;
-            --card-hover: #1f3040;
-            --accent: #00e676;
-            --accent-dim: #00c853;
-            --text: #e0e6ed;
-            --text-muted: #7a8a9a;
-            --border: #2a3a4a;
-            --home: #4fc3f7;
-            --draw: #ffb74d;
-            --away: #ef5350;
-            --confidence-high: #00e676;
-            --confidence-mid: #ffb74d;
-            --straight: #7c4dff;
-            --double: #00bcd4;
+            --bg: #0e1117;
+            --surface: #161b22;
+            --surface-raised: #1c2129;
+            --border: rgba(255,255,255,0.08);
+            --accent: #58a6ff;
+            --green: #3fb950;
+            --yellow: #d29922;
+            --red: #f85149;
+            --text: #e6edf3;
+            --text-secondary: #8b949e;
+            --text-faint: #484f58;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--bg);
             color: var(--text);
-            min-height: 100vh;
+            font-family: 'Inter', -apple-system, sans-serif;
+            line-height: 1.5;
         }
 
+        /* --- HEADER --- */
         .header {
-            background: linear-gradient(135deg, #1a2733 0%, #0f1923 100%);
             border-bottom: 1px solid var(--border);
-            padding: 20px 0;
+            padding: 16px 24px;
         }
 
         .header-inner {
-            max-width: 960px;
+            max-width: 900px;
             margin: 0 auto;
-            padding: 0 20px;
             display: flex;
-            align-items: center;
             justify-content: space-between;
-            flex-wrap: wrap;
+            align-items: center;
             gap: 16px;
+            flex-wrap: wrap;
         }
 
         .logo {
             display: flex;
             align-items: center;
-            gap: 12px;
-        }
-
-        .logo-icon {
-            width: 40px;
-            height: 40px;
-            background: var(--accent);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            color: var(--bg);
-            font-weight: 800;
-        }
-
-        .logo h1 {
-            font-size: 22px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-        }
-
-        .logo h1 span { color: var(--accent); }
-
-        .logo p {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-top: 2px;
-        }
-
-        .date-picker {
-            display: flex;
-            align-items: center;
             gap: 10px;
         }
 
-        .date-picker label {
-            font-size: 13px;
-            color: var(--text-muted);
-            font-weight: 500;
-        }
-
-        .date-picker input[type="date"] {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            color: var(--text);
-            padding: 10px 14px;
-            border-radius: 8px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: border-color 0.2s;
-        }
-
-        .date-picker input[type="date"]:hover,
-        .date-picker input[type="date"]:focus {
-            border-color: var(--accent);
-            outline: none;
-        }
-
-        .date-picker input[type="date"]::-webkit-calendar-picker-indicator {
-            filter: invert(1);
-            cursor: pointer;
-        }
-
-        .btn {
+        .logo-mark {
             background: var(--accent);
             color: var(--bg);
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
+            font-weight: 700;
+            font-size: 13px;
+            padding: 4px 8px;
+            border-radius: 6px;
         }
 
-        .btn:hover { background: var(--accent-dim); transform: translateY(-1px); }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-        .main {
-            max-width: 960px;
-            margin: 0 auto;
-            padding: 24px 20px;
-        }
-
-        .status-bar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .status-bar h2 {
+        .logo-name {
             font-size: 16px;
             font-weight: 600;
         }
 
-        .status-bar .count {
-            background: var(--card);
-            border: 1px solid var(--border);
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 13px;
-            color: var(--accent);
-            font-weight: 600;
+        .logo-sub {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-left: 8px;
         }
 
-        /* Loading spinner */
-        .loading {
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        input[type="date"] {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 7px 12px;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 13px;
+            outline: none;
+        }
+
+        input[type="date"]:focus { border-color: var(--accent); }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.8); cursor: pointer; }
+
+        .btn {
+            padding: 7px 14px;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            transition: all 0.15s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: var(--bg);
+            border-color: var(--accent);
+        }
+
+        .btn-primary:hover { opacity: 0.9; }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-secondary);
+        }
+
+        .btn-ghost:hover { color: var(--text); border-color: var(--text-secondary); }
+
+        /* --- STATUS --- */
+        .status-bar {
+            max-width: 900px;
+            margin: 20px auto 0;
+            padding: 0 24px;
             display: none;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-bar.active { display: flex; }
+
+        .status-title {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .status-count {
+            font-size: 12px;
+            color: var(--accent);
+            background: rgba(88,166,255,0.1);
+            padding: 2px 10px;
+            border-radius: 10px;
+        }
+
+        /* --- CONTENT --- */
+        .content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 16px 24px 60px;
+        }
+
+        .message {
             text-align: center;
             padding: 60px 20px;
+            color: var(--text-secondary);
+            font-size: 14px;
         }
 
-        .loading.active { display: block; }
+        .message.error { color: var(--red); }
 
         .spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid var(--border);
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--border);
             border-top-color: var(--accent);
             border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin: 0 auto 16px;
+            animation: spin 0.6s linear infinite;
+            margin: 0 auto 12px;
         }
 
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        .loading p {
-            color: var(--text-muted);
-            font-size: 14px;
-        }
-
-        /* Empty state */
-        .empty-state {
-            display: none;
-            text-align: center;
-            padding: 60px 20px;
-        }
-
-        .empty-state.active { display: block; }
-
-        .empty-icon {
-            font-size: 48px;
-            margin-bottom: 16px;
-            opacity: 0.4;
-        }
-
-        .empty-state h3 {
-            font-size: 18px;
-            margin-bottom: 8px;
-            color: var(--text);
-        }
-
-        .empty-state p {
-            color: var(--text-muted);
-            font-size: 14px;
-            max-width: 400px;
-            margin: 0 auto;
-        }
-
-        /* Picks grid */
-        .picks-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
+        /* --- PICK CARDS --- */
+        .picks-list { display: flex; flex-direction: column; gap: 12px; }
 
         .pick-card {
-            background: var(--card);
+            background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: 10px;
             padding: 20px;
-            transition: all 0.2s;
-            animation: fadeIn 0.3s ease-out;
+            transition: border-color 0.15s;
         }
 
-        .pick-card:hover {
-            border-color: var(--accent);
-            background: var(--card-hover);
-        }
+        .pick-card:hover { border-color: rgba(255,255,255,0.15); }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .pick-header {
+        .card-top {
             display: flex;
-            align-items: center;
             justify-content: space-between;
+            align-items: center;
             margin-bottom: 14px;
-            flex-wrap: wrap;
-            gap: 8px;
         }
 
-        .pick-competition {
+        .league {
             font-size: 11px;
+            color: var(--text-secondary);
             text-transform: uppercase;
-            letter-spacing: 0.8px;
-            color: var(--text-muted);
-            font-weight: 600;
+            letter-spacing: 0.5px;
+            font-weight: 500;
         }
 
-        .pick-time {
+        .kickoff {
             font-size: 12px;
-            color: var(--text-muted);
+            color: var(--text-faint);
         }
 
-        .pick-match {
+        /* Teams row */
+        .teams {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 16px;
+            gap: 14px;
             margin-bottom: 16px;
         }
 
         .team-name {
             font-size: 15px;
             font-weight: 600;
-            text-align: center;
             flex: 1;
         }
+
+        .team-name.home { text-align: right; }
+        .team-name.away { text-align: left; }
 
         .vs {
-            font-size: 12px;
-            color: var(--text-muted);
-            font-weight: 700;
-            text-transform: uppercase;
-            padding: 4px 10px;
+            font-size: 11px;
+            color: var(--text-faint);
+            font-weight: 600;
+            padding: 3px 8px;
             border: 1px solid var(--border);
-            border-radius: 6px;
+            border-radius: 4px;
         }
 
-        .pick-details {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .prob-bar {
-            flex: 1;
-            min-width: 200px;
+        /* Probability bar */
+        .prob-row {
+            margin-bottom: 14px;
         }
 
         .prob-labels {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 6px;
-        }
-
-        .prob-label {
+            margin-bottom: 5px;
             font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            font-weight: 500;
         }
 
-        .prob-label.home { color: var(--home); }
-        .prob-label.draw { color: var(--draw); }
-        .prob-label.away { color: var(--away); }
+        .prob-labels .lbl-home { color: var(--accent); }
+        .prob-labels .lbl-draw { color: var(--yellow); }
+        .prob-labels .lbl-away { color: var(--red); }
 
-        .prob-track {
+        .prob-bar {
             display: flex;
-            height: 8px;
-            border-radius: 4px;
+            height: 6px;
+            border-radius: 3px;
             overflow: hidden;
-            background: var(--bg);
+            background: rgba(255,255,255,0.04);
         }
 
-        .prob-segment {
-            transition: width 0.6s ease-out;
-        }
+        .prob-seg { transition: width 0.5s ease; }
+        .prob-seg.home { background: var(--accent); }
+        .prob-seg.draw { background: var(--yellow); }
+        .prob-seg.away { background: var(--red); }
 
-        .prob-segment.home { background: var(--home); }
-        .prob-segment.draw { background: var(--draw); }
-        .prob-segment.away { background: var(--away); }
-
-        .pick-recommendation {
+        /* Tip section */
+        .tip-row {
             display: flex;
             align-items: center;
+            justify-content: space-between;
             gap: 12px;
             flex-wrap: wrap;
         }
 
-        .pick-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 14px;
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: 700;
-        }
-
-        .pick-badge.straight {
-            background: rgba(124, 77, 255, 0.15);
-            color: var(--straight);
-            border: 1px solid rgba(124, 77, 255, 0.3);
-        }
-
-        .pick-badge.double {
-            background: rgba(0, 188, 212, 0.15);
-            color: var(--double);
-            border: 1px solid rgba(0, 188, 212, 0.3);
-        }
-
-        .confidence-meter {
+        .tip {
             display: flex;
             align-items: center;
             gap: 8px;
         }
 
-        .confidence-bar-bg {
-            width: 80px;
-            height: 6px;
-            background: var(--bg);
-            border-radius: 3px;
+        .tip-badge {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 4px;
+        }
+
+        .tip-badge.win {
+            background: rgba(63,185,80,0.12);
+            color: var(--green);
+            border: 1px solid rgba(63,185,80,0.25);
+        }
+
+        .tip-badge.dc {
+            background: rgba(88,166,255,0.12);
+            color: var(--accent);
+            border: 1px solid rgba(88,166,255,0.25);
+        }
+
+        .tip-pick {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        .confidence {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .conf-bar-bg {
+            width: 50px;
+            height: 4px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 2px;
             overflow: hidden;
         }
 
-        .confidence-bar-fill {
+        .conf-bar-fill {
             height: 100%;
-            border-radius: 3px;
-            transition: width 0.6s ease-out;
+            border-radius: 2px;
+            background: var(--green);
         }
 
-        .confidence-text {
-            font-size: 13px;
-            font-weight: 700;
-        }
+        .conf-bar-fill.mid { background: var(--yellow); }
 
-        .confidence-high { color: var(--confidence-high); }
-        .confidence-high .confidence-bar-fill { background: var(--confidence-high); }
-        .confidence-mid { color: var(--confidence-mid); }
-        .confidence-mid .confidence-bar-fill { background: var(--confidence-mid); }
-
-        .pick-reasoning {
-            margin-top: 12px;
-            padding-top: 12px;
+        .reasoning {
+            margin-top: 10px;
+            padding-top: 10px;
             border-top: 1px solid var(--border);
-            font-size: 13px;
-            color: var(--text-muted);
+            font-size: 12px;
+            color: var(--text-secondary);
             line-height: 1.5;
-        }
-
-        /* Error state */
-        .error-state {
-            display: none;
-            text-align: center;
-            padding: 40px 20px;
-            background: rgba(239, 83, 80, 0.08);
-            border: 1px solid rgba(239, 83, 80, 0.2);
-            border-radius: 12px;
-        }
-
-        .error-state.active { display: block; }
-
-        .error-state p {
-            color: var(--away);
-            font-size: 14px;
         }
 
         @media (max-width: 600px) {
             .header-inner { flex-direction: column; align-items: flex-start; }
-            .pick-match { flex-direction: column; gap: 8px; }
-            .team-name { font-size: 14px; }
-            .prob-bar { min-width: 100%; }
+            .teams { flex-direction: column; gap: 4px; }
+            .team-name { text-align: center !important; }
+            .tip-row { flex-direction: column; align-items: flex-start; }
         }
     </style>
 </head>
@@ -429,180 +345,137 @@
     <header class="header">
         <div class="header-inner">
             <div class="logo">
-                <div class="logo-icon">OB</div>
-                <div>
-                    <h1>Open<span>Bet</span></h1>
-                    <p>Football Prediction Engine</p>
-                </div>
+                <span class="logo-mark">OB</span>
+                <span class="logo-name">OpenBet</span>
+                <span class="logo-sub">Match Predictions</span>
             </div>
-            <div class="date-picker">
-                <label for="matchDate">Match Date</label>
+            <div class="controls">
                 <input type="date" id="matchDate">
-                <button class="btn" id="fetchBtn" onclick="fetchPicks()">Get Predictions</button>
+                <button class="btn btn-primary" onclick="fetchPicks()">Get Tips</button>
+                <button class="btn btn-ghost" onclick="fetchPicks(true)">Regenerate</button>
             </div>
         </div>
     </header>
 
-    <main class="main">
-        <div class="status-bar" id="statusBar" style="display:none;">
-            <h2 id="statusTitle">Predictions</h2>
-            <span class="count" id="statusCount">0 picks</span>
-        </div>
+    <div class="status-bar" id="statusBar">
+        <span class="status-title" id="statusTitle"></span>
+        <span class="status-count" id="statusCount"></span>
+    </div>
 
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p>Running prediction engine...</p>
-        </div>
-
-        <div class="empty-state" id="emptyState">
-            <div class="empty-icon">&#9917;</div>
-            <h3>No available games on this date</h3>
-            <p>There are no matches scheduled for the selected date. Please pick another date or check back later.</p>
-        </div>
-
-        <div class="error-state" id="errorState">
-            <p id="errorMessage">Something went wrong.</p>
-        </div>
-
-        <div class="picks-grid" id="picksGrid"></div>
-    </main>
+    <div class="content">
+        <div id="picksGrid"></div>
+    </div>
 
     <script>
         const dateInput = document.getElementById('matchDate');
-        const today = new Date().toISOString().split('T')[0];
-        dateInput.value = today;
+        dateInput.value = new Date().toISOString().split('T')[0];
 
-        // Auto-fetch on page load
-        window.addEventListener('DOMContentLoaded', fetchPicks);
+        function formatPickLabel(pick) {
+            const v = pick.pick_value;
+            if (v === 'HOME') return pick.home_team + ' to Win';
+            if (v === 'AWAY') return pick.away_team + ' to Win';
+            if (v === '1X') return pick.home_team + ' Win or Draw';
+            if (v === 'X2') return pick.away_team + ' Win or Draw';
+            return v;
+        }
 
-        // Fetch on date change
-        dateInput.addEventListener('change', fetchPicks);
+        function formatMarket(pick) {
+            if (pick.pick_type === 'STRAIGHT_WIN') return '1X2';
+            if (pick.pick_type === 'DOUBLE_CHANCE') return 'Double Chance';
+            return pick.pick_type;
+        }
 
-        async function fetchPicks() {
+        function createPickCard(pick) {
+            const h = pick.probabilities?.home_win ?? 0;
+            const d = pick.probabilities?.draw ?? 0;
+            const a = pick.probabilities?.away_win ?? 0;
+            const hP = (h * 100).toFixed(1);
+            const dP = (d * 100).toFixed(1);
+            const aP = (a * 100).toFixed(1);
+            const conf = (pick.confidence * 100).toFixed(0);
+            const isWin = pick.pick_type === 'STRAIGHT_WIN';
+            const badgeClass = isWin ? 'win' : 'dc';
+            const isHigh = pick.confidence >= 0.65;
+
+            return `
+                <div class="pick-card">
+                    <div class="card-top">
+                        <span class="league">${pick.competition || ''}</span>
+                        <span class="kickoff">${pick.kick_off || ''}</span>
+                    </div>
+                    <div class="teams">
+                        <span class="team-name home">${pick.home_team}</span>
+                        <span class="vs">vs</span>
+                        <span class="team-name away">${pick.away_team}</span>
+                    </div>
+                    <div class="prob-row">
+                        <div class="prob-labels">
+                            <span class="lbl-home">1 &middot; ${hP}%</span>
+                            <span class="lbl-draw">X &middot; ${dP}%</span>
+                            <span class="lbl-away">2 &middot; ${aP}%</span>
+                        </div>
+                        <div class="prob-bar">
+                            <div class="prob-seg home" style="width:${hP}%"></div>
+                            <div class="prob-seg draw" style="width:${dP}%"></div>
+                            <div class="prob-seg away" style="width:${aP}%"></div>
+                        </div>
+                    </div>
+                    <div class="tip-row">
+                        <div class="tip">
+                            <span class="tip-badge ${badgeClass}">${formatMarket(pick)}</span>
+                            <span class="tip-pick">${formatPickLabel(pick)}</span>
+                        </div>
+                        <div class="confidence">
+                            <div class="conf-bar-bg">
+                                <div class="conf-bar-fill ${isHigh ? '' : 'mid'}" style="width:${conf}%"></div>
+                            </div>
+                            <span>${conf}%</span>
+                        </div>
+                    </div>
+                    ${pick.reasoning ? `<div class="reasoning">${pick.reasoning}</div>` : ''}
+                </div>
+            `;
+        }
+
+        async function fetchPicks(force = false) {
             const date = dateInput.value;
             if (!date) return;
-
-            const loading = document.getElementById('loading');
-            const emptyState = document.getElementById('emptyState');
-            const errorState = document.getElementById('errorState');
-            const picksGrid = document.getElementById('picksGrid');
+            const grid = document.getElementById('picksGrid');
             const statusBar = document.getElementById('statusBar');
-            const btn = document.getElementById('fetchBtn');
+            statusBar.classList.remove('active');
 
-            // Reset UI
-            loading.classList.add('active');
-            emptyState.classList.remove('active');
-            errorState.classList.remove('active');
-            picksGrid.innerHTML = '';
-            statusBar.style.display = 'none';
-            btn.disabled = true;
+            grid.innerHTML = '<div class="message"><div class="spinner"></div>Generating predictions...</div>';
 
             try {
-                const response = await fetch(`/picks/date/${date}`);
-                const data = await response.json();
-
-                loading.classList.remove('active');
-                btn.disabled = false;
+                const url = force ? `/picks/date/${date}?force=true` : `/picks/date/${date}`;
+                const res = await fetch(url);
+                const data = await res.json();
 
                 if (data.error) {
-                    errorState.classList.add('active');
-                    document.getElementById('errorMessage').textContent = data.error;
+                    grid.innerHTML = `<div class="message error">${data.error}</div>`;
                     return;
                 }
 
                 if (!data.picks || data.picks.length === 0) {
-                    emptyState.classList.add('active');
+                    grid.innerHTML = '<div class="message">No matches scheduled for this date.</div>';
                     return;
                 }
 
-                // Show status bar
-                const displayDate = new Date(date + 'T00:00:00').toLocaleDateString('en-US', {
-                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+                const displayDate = new Date(date + 'T12:00:00').toLocaleDateString('en-GB', {
+                    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
                 });
-                document.getElementById('statusTitle').textContent = `Predictions for ${displayDate}`;
-                document.getElementById('statusCount').textContent = `${data.count} pick${data.count !== 1 ? 's' : ''}`;
-                statusBar.style.display = 'flex';
+                document.getElementById('statusTitle').textContent = displayDate;
+                document.getElementById('statusCount').textContent = data.count + ' tip' + (data.count !== 1 ? 's' : '');
+                statusBar.classList.add('active');
 
-                // Render picks with staggered animation
-                data.picks.forEach((pick, index) => {
-                    setTimeout(() => {
-                        picksGrid.appendChild(createPickCard(pick));
-                    }, index * 80);
-                });
-
-            } catch (err) {
-                loading.classList.remove('active');
-                btn.disabled = false;
-                errorState.classList.add('active');
-                document.getElementById('errorMessage').textContent =
-                    'Failed to connect to the prediction engine. Make sure the server is running.';
+                grid.innerHTML = '<div class="picks-list">' + data.picks.map(p => createPickCard(p)).join('') + '</div>';
+            } catch (e) {
+                grid.innerHTML = '<div class="message error">Could not connect to the server. Make sure it\'s running on port 8000.</div>';
             }
         }
 
-        function createPickCard(pick) {
-            const card = document.createElement('div');
-            card.className = 'pick-card';
-
-            const probHome = pick.probabilities?.home_win ?? 0;
-            const probDraw = pick.probabilities?.draw ?? 0;
-            const probAway = pick.probabilities?.away_win ?? 0;
-
-            const homePercent = (probHome * 100).toFixed(1);
-            const drawPercent = (probDraw * 100).toFixed(1);
-            const awayPercent = (probAway * 100).toFixed(1);
-
-            const confidencePercent = (pick.confidence * 100).toFixed(1);
-            const isHighConfidence = pick.confidence >= 0.7;
-            const confClass = isHighConfidence ? 'confidence-high' : 'confidence-mid';
-
-            const isStraight = pick.pick_type === 'STRAIGHT_WIN';
-            const badgeClass = isStraight ? 'straight' : 'double';
-            const badgeLabel = isStraight ? 'Straight Win' : 'Double Chance';
-
-            let pickDisplay = pick.pick_value;
-            if (pick.pick_value === 'HOME') pickDisplay = pick.home_team;
-            else if (pick.pick_value === 'AWAY') pickDisplay = pick.away_team;
-            else if (pick.pick_value === '1X') pickDisplay = `${pick.home_team} or Draw`;
-            else if (pick.pick_value === 'X2') pickDisplay = `Draw or ${pick.away_team}`;
-
-            card.innerHTML = `
-                <div class="pick-header">
-                    <span class="pick-competition">${pick.competition || ''}</span>
-                    <span class="pick-time">${pick.kick_off || ''}</span>
-                </div>
-                <div class="pick-match">
-                    <span class="team-name">${pick.home_team}</span>
-                    <span class="vs">VS</span>
-                    <span class="team-name">${pick.away_team}</span>
-                </div>
-                <div class="pick-details">
-                    <div class="prob-bar">
-                        <div class="prob-labels">
-                            <span class="prob-label home">${homePercent}%</span>
-                            <span class="prob-label draw">${drawPercent}%</span>
-                            <span class="prob-label away">${awayPercent}%</span>
-                        </div>
-                        <div class="prob-track">
-                            <div class="prob-segment home" style="width:${homePercent}%"></div>
-                            <div class="prob-segment draw" style="width:${drawPercent}%"></div>
-                            <div class="prob-segment away" style="width:${awayPercent}%"></div>
-                        </div>
-                    </div>
-                    <div class="pick-recommendation">
-                        <span class="pick-badge ${badgeClass}">${badgeLabel}: ${pickDisplay}</span>
-                        <div class="confidence-meter ${confClass}">
-                            <div class="confidence-bar-bg">
-                                <div class="confidence-bar-fill" style="width:${confidencePercent}%"></div>
-                            </div>
-                            <span class="confidence-text">${confidencePercent}%</span>
-                        </div>
-                    </div>
-                </div>
-                ${pick.reasoning ? `<div class="pick-reasoning">${pick.reasoning}</div>` : ''}
-            `;
-
-            return card;
-        }
+        window.addEventListener('DOMContentLoaded', () => fetchPicks());
+        dateInput.addEventListener('change', () => fetchPicks());
     </script>
 </body>
 </html>

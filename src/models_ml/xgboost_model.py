@@ -54,9 +54,9 @@ def create_model() -> XGBClassifier:
 def prepare_features(df: pd.DataFrame) -> pd.DataFrame:
     """Select and clean feature columns. Fill missing xG with 0."""
     features = df[FEATURE_COLUMNS].copy()
-    # Fill missing xG-based features with neutral values
-    xg_cols = [c for c in features.columns if "xg" in c]
-    features[xg_cols] = features[xg_cols].fillna(0.0)
+    # Convert all columns to numeric (handles None/object types from DB)
+    for col in features.columns:
+        features[col] = pd.to_numeric(features[col], errors="coerce")
     features = features.fillna(0.0)
     return features
 

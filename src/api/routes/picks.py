@@ -15,8 +15,80 @@ from src.models.feature import MatchFeature
 from src.models.match import Match
 from src.models.prediction import Pick, Prediction
 from src.models_ml.poisson import match_outcome_probabilities
+from src.models_ml.xgboost_model import FEATURE_COLUMNS, load_model, prepare_features
+
+import logging
+import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# Try to load the XGBoost model at startup
+_xgb_model = None
+try:
+    _xgb_model = load_model("v1")
+    logger.info("XGBoost model v1 loaded successfully")
+except Exception:
+    logger.warning("XGBoost model not found — predictions will use Poisson only")
+
+
+def _build_reasoning(pick_type: str, pick_value: str, ctx: dict) -> str:
+    """Generate a short human-readable reason for a pick."""
+    home = ctx["home"]
+    away = ctx["away"]
+    ph = ctx["prob_home"]
+    pd_ = ctx["prob_draw"]
+    pa = ctx["prob_away"]
+    feat = ctx.get("feature")
+
+    parts = []
+
+    # Core probability statement
+    if pick_type == "STRAIGHT_WIN" and pick_value == "HOME":
+        parts.append(f"{home} have a {ph:.0%} win probability, making them clear favourites.")
+    elif pick_type == "STRAIGHT_WIN" and pick_value == "AWAY":
+        parts.append(f"{away} have a {pa:.0%} win probability, making them clear favourites.")
+    elif pick_value == "1X":
+        parts.append(f"{home} have a {ph + pd_:.0%} combined chance of winning or drawing.")
+    elif pick_value == "X2":
+        parts.append(f"{away} have a {pa + pd_:.0%} combined chance of winning or drawing.")
+    else:
+        parts.append(f"Probabilities: {home} {ph:.0%}, Draw {pd_:.0%}, {away} {pa:.0%}.")
+
+    # Supporting factors
+    factors = []
+    if feat:
+        if feat.elo_diff is not None:
+            diff = feat.elo_diff
+            if abs(diff) > 80:
+                stronger = home if diff > 0 else away
+                factors.append(f"{stronger} are Elo-rated significantly higher")
+            elif abs(diff) < 30:
+                factors.append("both teams are closely rated by Elo")
+
+        if feat.home_form is not None and feat.away_form is not None:
+            fd = feat.home_form - feat.away_form
+            if fd > 5:
+                factors.append(f"{home} are in stronger recent form")
+            elif fd < -5:
+                factors.append(f"{away} are in stronger recent form")
+
+        if feat.home_advantage is not None and feat.home_advantage > 0.55:
+            factors.append(f"{home} have a strong home record")
+
+        if feat.h2h_home_wins is not None:
+            total = (feat.h2h_home_wins or 0) + (feat.h2h_draws or 0) + (feat.h2h_away_wins or 0)
+            if total >= 3:
+                if feat.h2h_home_wins / total > 0.6:
+                    factors.append(f"{home} dominate the head-to-head record")
+                elif feat.h2h_away_wins / total > 0.6:
+                    factors.append(f"{away} dominate the head-to-head record")
+
+    if factors:
+        parts.append(" ".join(f.capitalize() if i == 0 else f for i, f in enumerate(factors[:2])) + ".")
+
+    return " ".join(parts)
 
 
 def _format_pick(pick: Pick, match: Match) -> dict:
@@ -131,6 +203,20 @@ async def _run_predictions_for_date(target_date: date, db: AsyncSession) -> list
         prob_draw = poisson_result["draw"]
         prob_away = poisson_result["away_win"]
 
+        # --- 0. Blend with XGBoost if model available ---
+        if _xgb_model is not None and feature:
+            try:
+                feat_dict = {col: getattr(feature, col, None) for col in FEATURE_COLUMNS}
+                feat_df = pd.DataFrame([feat_dict])
+                feat_df = prepare_features(feat_df)
+                xgb_probs = _xgb_model.predict_proba(feat_df)[0]
+                # Blend: 55% Poisson + 45% XGBoost
+                prob_home = 0.55 * prob_home + 0.45 * float(xgb_probs[0])
+                prob_draw = 0.55 * prob_draw + 0.45 * float(xgb_probs[1])
+                prob_away = 0.55 * prob_away + 0.45 * float(xgb_probs[2])
+            except Exception:
+                logger.debug("XGBoost prediction failed for match %s, using Poisson only", match.id)
+
         # --- 1. Integrate xG data when available ---
         # Use xG to adjust expected goals before blending, treated as a
         # separate signal weighted alongside Poisson.
@@ -195,7 +281,18 @@ async def _run_predictions_for_date(target_date: date, db: AsyncSession) -> list
                 prob_home -= draw_boost * 0.5
                 prob_away -= draw_boost * 0.5
 
-        # --- 5. Calibration: boost draws when home/away are close ---
+        # --- 5. Head-to-head adjustment ---
+        if feature and feature.h2h_home_wins is not None:
+            h2h_total = (feature.h2h_home_wins or 0) + (feature.h2h_draws or 0) + (feature.h2h_away_wins or 0)
+            if h2h_total >= 3:
+                h2h_home_rate = feature.h2h_home_wins / h2h_total
+                h2h_away_rate = feature.h2h_away_wins / h2h_total
+                h2h_draw_rate = feature.h2h_draws / h2h_total
+                prob_home = 0.90 * prob_home + 0.10 * h2h_home_rate
+                prob_draw = 0.90 * prob_draw + 0.10 * h2h_draw_rate
+                prob_away = 0.90 * prob_away + 0.10 * h2h_away_rate
+
+        # --- 6. Calibration: boost draws when home/away are close ---
         margin = abs(prob_home - prob_away)
         if margin < 0.05:
             # Very close match - increase draw probability
@@ -238,11 +335,22 @@ async def _run_predictions_for_date(target_date: date, db: AsyncSession) -> list
         db.add(prediction)
         await db.flush()
 
+        # Build context dict for reasoning
+        ctx = {
+            "home": match.home_team.name,
+            "away": match.away_team.name,
+            "prob_home": prob_home,
+            "prob_draw": prob_draw,
+            "prob_away": prob_away,
+            "feature": feature,
+        }
+
         # Evaluate betting opportunities (threshold-based)
         bet_picks = evaluate_betting_opportunity(prob_home, prob_draw, prob_away)
 
         if bet_picks:
             for bp in bet_picks:
+                bp["reasoning"] = _build_reasoning(bp["pick_type"], bp["pick_value"], ctx)
                 all_candidates.append({
                     "prediction": prediction,
                     "match": match,
@@ -262,36 +370,34 @@ async def _run_predictions_for_date(target_date: date, db: AsyncSession) -> list
                 ("DOUBLE_CHANCE", "X2", away_not_lose),
             ]
 
-            # Pick selection: use symmetric thresholds to avoid bias.
-            # Historical base rates: H~43%, D~25%, A~32%.
-            # Straight win when one side is clearly dominant (>48%).
-            # Double chance when there's a moderate edge (>8% margin).
-            # For close matches, lean toward the home side (home advantage
-            # is real but under-represented in pure probability).
+            # Pick selection: use the dominant probability to decide pick type.
+            # Straight win when one side is clearly stronger (>40%).
+            # Draw pick when draw is the highest probability.
+            # Double chance only for genuinely uncertain matches.
             margin = prob_home - prob_away
+            max_prob = max(prob_home, prob_draw, prob_away)
 
-            if prob_home >= 0.48:
+            if prob_home >= 0.40 and prob_home == max_prob:
                 pick_type, pick_value, conf = "STRAIGHT_WIN", "HOME", prob_home
-            elif prob_away >= 0.48:
+            elif prob_away >= 0.40 and prob_away == max_prob:
                 pick_type, pick_value, conf = "STRAIGHT_WIN", "AWAY", prob_away
-            elif margin > 0.08:
-                # Home has a moderate edge — double chance home
-                pick_type, pick_value, conf = "DOUBLE_CHANCE", "1X", home_not_lose
-            elif margin < -0.08:
-                # Away has a moderate edge — double chance away
-                pick_type, pick_value, conf = "DOUBLE_CHANCE", "X2", away_not_lose
-            elif prob_draw >= 0.28:
-                # High draw probability — pick double chance on the stronger side
+            elif prob_draw >= 0.30 and prob_draw == max_prob:
+                # Draw is the most likely outcome — pick draw via double chance
+                # on the weaker side (higher value bet)
                 if prob_home >= prob_away:
                     pick_type, pick_value, conf = "DOUBLE_CHANCE", "1X", home_not_lose
                 else:
                     pick_type, pick_value, conf = "DOUBLE_CHANCE", "X2", away_not_lose
+            elif prob_home > prob_away and margin > 0.05:
+                pick_type, pick_value, conf = "STRAIGHT_WIN", "HOME", prob_home
+            elif prob_away > prob_home and margin < -0.05:
+                pick_type, pick_value, conf = "STRAIGHT_WIN", "AWAY", prob_away
             elif prob_home >= prob_away:
-                # Close match, home has slight edge — favour home (base rate is higher)
                 pick_type, pick_value, conf = "DOUBLE_CHANCE", "1X", home_not_lose
             else:
                 pick_type, pick_value, conf = "DOUBLE_CHANCE", "X2", away_not_lose
 
+            reasoning = _build_reasoning(pick_type, pick_value, ctx)
             all_candidates.append({
                 "prediction": prediction,
                 "match": match,
@@ -299,6 +405,7 @@ async def _run_predictions_for_date(target_date: date, db: AsyncSession) -> list
                 "pick_type": pick_type,
                 "pick_value": pick_value,
                 "confidence": conf,
+                "reasoning": reasoning,
             })
 
     # Sort by confidence, diversify across leagues, take top 12
@@ -323,7 +430,7 @@ async def _run_predictions_for_date(target_date: date, db: AsyncSession) -> list
             pick_type=p["pick_type"],
             pick_value=p["pick_value"],
             confidence=p["confidence"],
-            reasoning="Poisson model prediction",
+            reasoning=p.get("reasoning", ""),
             matchday_label=f"MD{p['match'].matchday or '?'}",
         )
         db.add(pick)
@@ -335,15 +442,27 @@ async def _run_predictions_for_date(target_date: date, db: AsyncSession) -> list
 
 
 @router.get("/date/{target_date}")
-async def get_picks_by_date(target_date: str, db: AsyncSession = Depends(get_db)):
+async def get_picks_by_date(target_date: str, force: bool = False, db: AsyncSession = Depends(get_db)):
     """Get predictions for a specific date. Runs the engine if no picks exist yet.
 
     Date format: YYYY-MM-DD
+    Pass ?force=true to regenerate predictions.
     """
     try:
         parsed_date = datetime.strptime(target_date, "%Y-%m-%d").date()
     except ValueError:
         return {"error": "Invalid date format. Use YYYY-MM-DD.", "picks": [], "count": 0}
+
+    if force:
+        # Delete existing picks and predictions for this date
+        start, end = _date_range(parsed_date)
+        match_ids_stmt = select(Match.id).where(Match.match_date >= start, Match.match_date < end)
+        match_ids = (await db.execute(match_ids_stmt)).scalars().all()
+        if match_ids:
+            from sqlalchemy import delete
+            await db.execute(delete(Pick).where(Pick.match_id.in_(match_ids)))
+            await db.execute(delete(Prediction).where(Prediction.match_id.in_(match_ids)))
+            await db.commit()
 
     # Check for existing picks first
     picks = await _get_picks_for_date(parsed_date, db)

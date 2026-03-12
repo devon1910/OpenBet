@@ -325,12 +325,19 @@
         .conf-bar-fill.mid { background: var(--yellow); }
 
         .reasoning {
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid var(--border);
+            margin-top: 12px;
+            padding: 10px 12px;
+            background: rgba(255,255,255,0.02);
+            border-left: 2px solid var(--accent);
+            border-radius: 0 4px 4px 0;
             font-size: 12px;
             color: var(--text-secondary);
             line-height: 1.5;
+        }
+
+        .reasoning strong {
+            color: var(--text);
+            font-weight: 500;
         }
 
         @media (max-width: 600px) {
@@ -432,7 +439,7 @@
                             <span>${conf}%</span>
                         </div>
                     </div>
-                    ${pick.reasoning ? `<div class="reasoning">${pick.reasoning}</div>` : ''}
+                    ${pick.reasoning ? `<div class="reasoning"><strong>Why:</strong> ${pick.reasoning}</div>` : ''}
                 </div>
             `;
         }
@@ -470,7 +477,25 @@
 
                 grid.innerHTML = '<div class="picks-list">' + data.picks.map(p => createPickCard(p)).join('') + '</div>';
             } catch (e) {
-                grid.innerHTML = '<div class="message error">Could not connect to the server. Make sure it\'s running on port 8000.</div>';
+                // Show a demo card so the UI can be previewed without the server
+                const demo = {
+                    competition: 'Premier League', kick_off: '15:00',
+                    home_team: 'Arsenal', away_team: 'Chelsea',
+                    probabilities: { home_win: 0.52, draw: 0.24, away_win: 0.24 },
+                    pick_type: 'STRAIGHT_WIN', pick_value: 'HOME',
+                    confidence: 0.52,
+                    reasoning: 'Arsenal have a 52% win probability, making them clear favourites. Arsenal are in stronger recent form and have a strong home record.'
+                };
+                const demo2 = {
+                    competition: 'La Liga', kick_off: '20:00',
+                    home_team: 'Getafe', away_team: 'Barcelona',
+                    probabilities: { home_win: 0.18, draw: 0.22, away_win: 0.60 },
+                    pick_type: 'STRAIGHT_WIN', pick_value: 'AWAY',
+                    confidence: 0.60,
+                    reasoning: 'Barcelona have a 60% win probability, making them clear favourites. Barcelona are Elo-rated significantly higher and are in stronger recent form.'
+                };
+                grid.innerHTML = '<div class="message error" style="padding:20px 0 10px">Server not connected — showing preview</div>'
+                    + '<div class="picks-list">' + [demo, demo2].map(p => createPickCard(p)).join('') + '</div>';
             }
         }
 

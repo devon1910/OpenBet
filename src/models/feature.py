@@ -39,6 +39,11 @@ class MatchFeature(Base):
     h2h_draws = Column(Integer, default=0)
     h2h_away_wins = Column(Integer, default=0)
 
+    # Bookmaker odds (implied probabilities)
+    odds_home = Column(Float)
+    odds_draw = Column(Float)
+    odds_away = Column(Float)
+
     # Injuries
     home_injuries_key = Column(Integer, default=0)
     away_injuries_key = Column(Integer, default=0)

@@ -5,6 +5,7 @@ import logging
 
 from src.collectors.football_data import FootballDataCollector, COMPETITIONS
 from src.collectors.api_football import ApiFootballCollector, LEAGUE_MAP
+from src.collectors.odds_api import OddsApiCollector
 from src.database import async_session
 
 logger = logging.getLogger(__name__)
@@ -53,3 +54,19 @@ def enrich_xg():
     logger.info("Starting xG enrichment")
     _run_async(_enrich_xg_data())
     logger.info("xG enrichment complete")
+
+
+async def _fetch_odds():
+    collector = OddsApiCollector()
+    try:
+        async with async_session() as session:
+            await collector.enrich_odds(session)
+    finally:
+        await collector.close()
+
+
+def fetch_odds():
+    """Fetch bookmaker odds for upcoming matches from The Odds API."""
+    logger.info("Starting odds fetch")
+    _run_async(_fetch_odds())
+    logger.info("Odds fetch complete")

@@ -28,6 +28,9 @@ FEATURE_COLUMNS = [
     "away_xg_conceded_avg",
     "xg_diff",
     "home_advantage",
+    "odds_home",
+    "odds_draw",
+    "odds_away",
 ]
 
 MODEL_DIR = Path("trained_models")

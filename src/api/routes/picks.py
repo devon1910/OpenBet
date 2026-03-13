@@ -1,6 +1,5 @@
 """Picks endpoints - betting recommendations by date."""
 
-import math
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 
@@ -14,6 +13,7 @@ from src.engine.betting import evaluate_betting_opportunity
 from src.models.feature import MatchFeature
 from src.models.match import Match
 from src.models.prediction import Pick, Prediction
+from src.models_ml.ensemble import ensemble_predict
 from src.models_ml.poisson import match_outcome_probabilities
 from src.models_ml.xgboost_model import FEATURE_COLUMNS, load_model, prepare_features
 
@@ -186,11 +186,18 @@ async def _run_predictions_for_date(target_date: date, db: AsyncSession) -> list
     for match in matches:
         feature = match.features
 
-        # Use feature data if available, otherwise defaults
-        home_attack = feature.home_attack_strength if feature and feature.home_attack_strength else 1.0
-        home_defense = feature.home_defense_strength if feature and feature.home_defense_strength else 1.0
-        away_attack = feature.away_attack_strength if feature and feature.away_attack_strength else 1.0
-        away_defense = feature.away_defense_strength if feature and feature.away_defense_strength else 1.0
+        # Build feature dict for this match
+        feat_dict = {}
+        if feature:
+            feat_dict = {col: getattr(feature, col, None) for col in FEATURE_COLUMNS}
+        else:
+            feat_dict = {col: None for col in FEATURE_COLUMNS}
+
+        # Poisson baseline (always available)
+        home_attack = feat_dict.get("home_attack_strength") or 1.0
+        home_defense = feat_dict.get("home_defense_strength") or 1.0
+        away_attack = feat_dict.get("away_attack_strength") or 1.0
+        away_defense = feat_dict.get("away_defense_strength") or 1.0
 
         poisson_result = match_outcome_probabilities(
             home_attack=home_attack,
@@ -199,124 +206,21 @@ async def _run_predictions_for_date(target_date: date, db: AsyncSession) -> list
             away_defense=away_defense,
         )
 
+        # Try stacking ensemble (Poisson + XGBoost + odds via meta-learner)
         prob_home = poisson_result["home_win"]
         prob_draw = poisson_result["draw"]
         prob_away = poisson_result["away_win"]
 
-        # --- 0. Blend with XGBoost if model available ---
         if _xgb_model is not None and feature:
             try:
-                feat_dict = {col: getattr(feature, col, None) for col in FEATURE_COLUMNS}
                 feat_df = pd.DataFrame([feat_dict])
-                feat_df = prepare_features(feat_df)
-                xgb_probs = _xgb_model.predict_proba(feat_df)[0]
-                # Blend: 55% Poisson + 45% XGBoost
-                prob_home = 0.55 * prob_home + 0.45 * float(xgb_probs[0])
-                prob_draw = 0.55 * prob_draw + 0.45 * float(xgb_probs[1])
-                prob_away = 0.55 * prob_away + 0.45 * float(xgb_probs[2])
+                ens_results = ensemble_predict(feat_df, model_version="v1")
+                if ens_results:
+                    prob_home = ens_results[0]["ensemble_home"]
+                    prob_draw = ens_results[0]["ensemble_draw"]
+                    prob_away = ens_results[0]["ensemble_away"]
             except Exception:
-                logger.debug("XGBoost prediction failed for match %s, using Poisson only", match.id)
-
-        # --- 1. Integrate xG data when available ---
-        # Use xG to adjust expected goals before blending, treated as a
-        # separate signal weighted alongside Poisson.
-        if (feature and feature.home_xg_avg is not None
-                and feature.away_xg_avg is not None):
-            # xG-based goal expectations adjust the Poisson baseline
-            xg_home_goals = feature.home_xg_avg
-            xg_away_goals = feature.away_xg_avg
-            xg_result = match_outcome_probabilities(
-                home_attack=xg_home_goals / max(home_attack, 0.01),
-                home_defense=home_defense,
-                away_attack=xg_away_goals / max(away_attack, 0.01),
-                away_defense=away_defense,
-            )
-            # Blend Poisson (60%) with xG-adjusted Poisson (40%)
-            prob_home = 0.6 * prob_home + 0.4 * xg_result["home_win"]
-            prob_draw = 0.6 * prob_draw + 0.4 * xg_result["draw"]
-            prob_away = 0.6 * prob_away + 0.4 * xg_result["away_win"]
-
-        # --- 2. Integrate home advantage ---
-        if feature and feature.home_advantage is not None:
-            ha = feature.home_advantage  # float 0-1, historical home win %
-            # Neutral expectation is ~0.46 (league avg home win rate).
-            # Shift home prob proportionally to how much this venue exceeds avg.
-            ha_boost = (ha - 0.46) * 0.15  # capped adjustment
-            ha_boost = max(min(ha_boost, 0.06), -0.04)
-            prob_home += ha_boost
-            prob_away -= ha_boost * 0.6
-            prob_draw -= ha_boost * 0.4
-
-        # --- 3. Improved Elo blending with proper draw model ---
-        if feature and feature.elo_diff is not None:
-            elo_diff = feature.elo_diff
-            elo_expected = 1.0 / (1.0 + 10 ** (-elo_diff / 400.0))
-            elo_away_exp = 1.0 - elo_expected
-
-            # Draw probability from Elo: draws are most likely when teams
-            # are evenly matched. Use a Gaussian-like model centered at 0.
-            # Base draw rate ~0.26 at elo_diff=0, decreasing as diff grows.
-            elo_draw = 0.26 * math.exp(-(elo_diff ** 2) / (2 * 250 ** 2))
-            elo_draw = max(elo_draw, 0.08)  # floor: even mismatches have some draw chance
-
-            elo_home = elo_expected * (1.0 - elo_draw)
-            elo_away_adj = elo_away_exp * (1.0 - elo_draw)
-
-            # Blend: 55% Poisson, 45% Elo (Elo is a strong signal)
-            prob_home = 0.55 * prob_home + 0.45 * elo_home
-            prob_draw = 0.55 * prob_draw + 0.45 * elo_draw
-            prob_away = 0.55 * prob_away + 0.45 * elo_away_adj
-
-        # --- 4. Blend in form if available ---
-        if feature and feature.home_form is not None and feature.away_form is not None:
-            form_diff = feature.home_form - feature.away_form
-            # form_diff ranges roughly -15 to +15, normalize to small adjustment
-            form_adj = max(min(form_diff / 150.0, 0.06), -0.06)
-            prob_home += form_adj
-            prob_away -= form_adj
-            # When form is very close, teams are evenly matched -> boost draw
-            if abs(form_diff) < 3:
-                draw_boost = 0.02 * (1.0 - abs(form_diff) / 3.0)
-                prob_draw += draw_boost
-                prob_home -= draw_boost * 0.5
-                prob_away -= draw_boost * 0.5
-
-        # --- 5. Head-to-head adjustment ---
-        if feature and feature.h2h_home_wins is not None:
-            h2h_total = (feature.h2h_home_wins or 0) + (feature.h2h_draws or 0) + (feature.h2h_away_wins or 0)
-            if h2h_total >= 3:
-                h2h_home_rate = feature.h2h_home_wins / h2h_total
-                h2h_away_rate = feature.h2h_away_wins / h2h_total
-                h2h_draw_rate = feature.h2h_draws / h2h_total
-                prob_home = 0.90 * prob_home + 0.10 * h2h_home_rate
-                prob_draw = 0.90 * prob_draw + 0.10 * h2h_draw_rate
-                prob_away = 0.90 * prob_away + 0.10 * h2h_away_rate
-
-        # --- 6. Calibration: boost draws when home/away are close ---
-        margin = abs(prob_home - prob_away)
-        if margin < 0.05:
-            # Very close match - increase draw probability
-            cal_boost = 0.03 * (1.0 - margin / 0.05)
-            prob_draw += cal_boost
-            prob_home -= cal_boost * 0.5
-            prob_away -= cal_boost * 0.5
-        elif margin < 0.10:
-            cal_boost = 0.015 * (1.0 - (margin - 0.05) / 0.05)
-            prob_draw += cal_boost
-            prob_home -= cal_boost * 0.5
-            prob_away -= cal_boost * 0.5
-
-        # Ensure draw probability has a realistic floor (~12%) and
-        # doesn't exceed a realistic ceiling (~35%)
-        prob_draw = max(prob_draw, 0.12)
-        prob_draw = min(prob_draw, 0.35)
-
-        # Normalize
-        total = prob_home + prob_draw + prob_away
-        if total > 0:
-            prob_home /= total
-            prob_draw /= total
-            prob_away /= total
+                logger.debug("Ensemble failed for match %s, using Poisson only", match.id)
 
         # Save prediction
         prediction = Prediction(

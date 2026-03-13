@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     elo_initial_rating: float = 1500.0
 
     # Betting thresholds
-    straight_win_threshold: float = 0.60
+    straight_win_threshold: float = 0.55
     double_chance_threshold: float = 0.75
     max_picks_per_matchday: int = 5
     min_picks_per_matchday: int = 3

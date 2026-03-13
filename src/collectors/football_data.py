@@ -2,7 +2,7 @@
 
 Free tier: 10 requests/minute.
 Covers: Premier League, La Liga, Bundesliga, Serie A, Ligue 1, Eredivisie,
-        Primeira Liga, Championship.
+        Primeira Liga, Championship, Champions League, European Championship.
 """
 
 import logging
@@ -25,6 +25,9 @@ COMPETITIONS = {
     "BL1": "Bundesliga",
     "SA": "Serie A",
     "FL1": "Ligue 1",
+    "DED": "Eredivisie",
+    "PPL": "Primeira Liga",
+    "ELC": "Championship",
 }
 
 

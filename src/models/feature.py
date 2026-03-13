@@ -44,6 +44,13 @@ class MatchFeature(Base):
     odds_draw = Column(Float)
     odds_away = Column(Float)
 
+    # Match context
+    h2h_home_win_rate = Column(Float)
+    home_days_rest = Column(Integer)
+    away_days_rest = Column(Integer)
+    home_fixture_congestion = Column(Integer)
+    away_fixture_congestion = Column(Integer)
+
     # Injuries
     home_injuries_key = Column(Integer, default=0)
     away_injuries_key = Column(Integer, default=0)

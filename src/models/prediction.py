@@ -51,6 +51,8 @@ class Pick(Base):
     pick_type = Column(String(20))   # STRAIGHT_WIN, DOUBLE_CHANCE
     pick_value = Column(String(20))  # HOME, AWAY, 1X, X2
     confidence = Column(Float)
+    edge = Column(Float)             # value edge: model_prob - market_prob
+    odds_decimal = Column(Float)     # decimal odds at time of pick
     reasoning = Column(Text)
     outcome = Column(String(10))     # WIN, LOSS, VOID
     matchday_label = Column(String(20))

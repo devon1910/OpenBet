@@ -28,8 +28,9 @@ class Settings(BaseSettings):
     # Betting thresholds
     straight_win_threshold: float = 0.60
     double_chance_threshold: float = 0.75
-    max_picks_per_matchday: int = 12
-    min_picks_per_matchday: int = 10
+    max_picks_per_matchday: int = 5
+    min_picks_per_matchday: int = 3
+    min_value_edge: float = 0.05
 
     # Claude reasoning
     claude_max_adjustment: float = 0.10

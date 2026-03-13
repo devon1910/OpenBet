@@ -129,6 +129,31 @@ async def train_model():
     return {"status": "ok", "message": "Training complete.", "metrics": metrics}
 
 
+@router.post("/backtest")
+async def run_backtest():
+    """Run a walk-forward backtest over recent historical data."""
+    from datetime import date, timedelta
+    from src.database import async_session
+    from src.learning.backtester import backtest
+
+    end = date.today()
+    start = end - timedelta(weeks=8)
+
+    try:
+        async with async_session() as session:
+            results = await backtest(session, start, end)
+    except Exception as e:
+        logger.exception("Backtest failed")
+        return {"status": "error", "message": str(e)}
+
+    roi_str = f"{results['roi']:.1f}%" if results.get('roi') is not None else "N/A"
+    msg = (f"Backtest complete: {results['total_picks']} picks, "
+           f"{results['accuracy']*100:.1f}% accuracy, "
+           f"ROI: {roi_str}, "
+           f"Perfect days: {results['perfect_matchdays']}/{results['total_matchdays']}")
+    return {"status": "ok", "message": msg, "results": results}
+
+
 @router.get("/status")
 async def system_status():
     """Check system status — DB connection, model availability, data counts."""

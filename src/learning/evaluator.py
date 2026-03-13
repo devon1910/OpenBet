@@ -1,14 +1,16 @@
 """Model performance evaluator.
 
-Computes accuracy, Brier score, and ROI over specified periods.
+Computes accuracy, Brier score, ROI, and breakdowns by bet type and league.
 """
 
 import logging
+from collections import defaultdict
 from datetime import date, timedelta
 
 import numpy as np
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from src.models.match import Match
 from src.models.prediction import ModelPerformance, Pick, Prediction
@@ -24,7 +26,7 @@ async def evaluate_period(
 ) -> dict:
     """Evaluate model performance over a date range.
 
-    Returns and stores accuracy, Brier score, and ROI metrics.
+    Returns and stores accuracy, Brier score, ROI, and breakdowns.
     """
     stmt = (
         select(Pick, Prediction, Match)
@@ -36,9 +38,10 @@ async def evaluate_period(
             Match.match_date <= f"{period_end}T23:59:59+00:00",
             Prediction.model_version == model_version,
         )
+        .options(joinedload(Match.competition))
     )
     result = await session.execute(stmt)
-    rows = result.all()
+    rows = result.unique().all()
 
     if not rows:
         return {"error": "no_data", "period_start": str(period_start), "period_end": str(period_end)}
@@ -47,12 +50,11 @@ async def evaluate_period(
     correct = sum(1 for pick, _, _ in rows if pick.outcome == "WIN")
     accuracy = correct / total if total else 0
 
-    # Brier score: mean squared error of predicted probability vs actual outcome
+    # Brier score
     brier_scores = []
     for pick, prediction, match in rows:
         if match.home_goals is None:
             continue
-        # Actual outcome as one-hot
         if match.home_goals > match.away_goals:
             actual = [1, 0, 0]
         elif match.home_goals == match.away_goals:
@@ -70,6 +72,49 @@ async def evaluate_period(
 
     brier_score = float(np.mean(brier_scores)) if brier_scores else None
 
+    # ROI calculation (unit stake = 1.0 per pick)
+    total_staked = 0
+    total_profit = 0.0
+    for pick, prediction, match in rows:
+        if pick.odds_decimal is not None and pick.odds_decimal > 0:
+            total_staked += 1
+            if pick.outcome == "WIN":
+                total_profit += pick.odds_decimal - 1.0
+            else:
+                total_profit -= 1.0
+
+    roi = (total_profit / total_staked * 100) if total_staked > 0 else None
+
+    # Breakdown by bet type
+    by_type = defaultdict(lambda: {"total": 0, "correct": 0})
+    for pick, _, _ in rows:
+        key = pick.pick_type
+        by_type[key]["total"] += 1
+        if pick.outcome == "WIN":
+            by_type[key]["correct"] += 1
+    type_breakdown = {
+        k: {"total": v["total"], "correct": v["correct"],
+            "accuracy": round(v["correct"] / v["total"], 3) if v["total"] else 0}
+        for k, v in by_type.items()
+    }
+
+    # Breakdown by league
+    by_league = defaultdict(lambda: {"total": 0, "correct": 0})
+    for pick, _, match in rows:
+        league = match.competition.name if match.competition else "Unknown"
+        by_league[league]["total"] += 1
+        if pick.outcome == "WIN":
+            by_league[league]["correct"] += 1
+    league_breakdown = {
+        k: {"total": v["total"], "correct": v["correct"],
+            "accuracy": round(v["correct"] / v["total"], 3) if v["total"] else 0}
+        for k, v in by_league.items()
+    }
+
+    # Average edge
+    edges = [pick.edge for pick, _, _ in rows if pick.edge is not None]
+    avg_edge = float(np.mean(edges)) if edges else None
+
     # Save performance record
     perf = ModelPerformance(
         period_start=period_start,
@@ -78,7 +123,7 @@ async def evaluate_period(
         correct_picks=correct,
         accuracy=accuracy,
         brier_score=brier_score,
-        roi=None,  # ROI requires odds data which we don't have yet
+        roi=roi,
         model_version=model_version,
     )
     session.add(perf)
@@ -91,6 +136,10 @@ async def evaluate_period(
         "correct_picks": correct,
         "accuracy": accuracy,
         "brier_score": brier_score,
+        "roi": roi,
+        "avg_edge": avg_edge,
+        "by_bet_type": type_breakdown,
+        "by_league": league_breakdown,
         "model_version": model_version,
     }
     logger.info("Performance evaluation: %s", metrics)

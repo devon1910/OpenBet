@@ -122,9 +122,12 @@ async def generate_predictions_and_picks(
         session.add(prediction)
         await session.flush()
 
-        # Evaluate betting opportunities
+        # Evaluate betting opportunities (with market odds for value detection)
         bet_picks = evaluate_betting_opportunity(
             prob_home, prob_draw, prob_away,
+            odds_home=feature.odds_home,
+            odds_draw=feature.odds_draw,
+            odds_away=feature.odds_away,
             unpredictable=reasoning.get("unpredictable", False),
         )
 
@@ -148,6 +151,8 @@ async def generate_predictions_and_picks(
             pick_type=p["pick_type"],
             pick_value=p["pick_value"],
             confidence=p["confidence"],
+            edge=p.get("edge"),
+            odds_decimal=p.get("odds_decimal"),
             reasoning=p["prediction"].claude_reasoning,
             matchday_label=f"MD{p['match'].matchday or '?'}",
         )
@@ -168,8 +173,8 @@ def _select_top_picks(
     if max_picks is None:
         max_picks = settings.max_picks_per_matchday
 
-    # Sort by confidence descending
-    candidates.sort(key=lambda x: x["confidence"], reverse=True)
+    # Sort by edge (value) descending, then confidence as tiebreaker
+    candidates.sort(key=lambda x: (x.get("edge", 0), x["confidence"]), reverse=True)
 
     selected = []
     league_counts = defaultdict(int)

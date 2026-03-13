@@ -7,7 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.features.elo import get_or_create_elo
 from src.features.form import compute_form
+from src.features.h2h import compute_h2h
 from src.features.home_advantage import compute_home_advantage
+from src.features.match_context import compute_days_rest, compute_fixture_congestion
 from src.features.strength import compute_strength
 from src.features.xg import compute_xg_features
 from src.models.feature import MatchFeature
@@ -44,6 +46,15 @@ async def build_features_for_match(
     # Home advantage
     home_adv = await compute_home_advantage(session, home_id, comp_id)
 
+    # Head-to-head
+    h2h = await compute_h2h(session, home_id, away_id, match.id)
+
+    # Match context
+    home_rest = await compute_days_rest(session, home_id, match.id)
+    away_rest = await compute_days_rest(session, away_id, match.id)
+    home_congestion = await compute_fixture_congestion(session, home_id, match.id)
+    away_congestion = await compute_fixture_congestion(session, away_id, match.id)
+
     xg_diff = None
     if home_xg["xg_created_avg"] is not None and away_xg["xg_created_avg"] is not None:
         xg_diff = home_xg["xg_created_avg"] - away_xg["xg_created_avg"]
@@ -63,6 +74,14 @@ async def build_features_for_match(
         away_xg_conceded_avg=away_xg["xg_conceded_avg"],
         xg_diff=xg_diff,
         home_advantage=home_adv,
+        h2h_home_wins=h2h["h2h_home_wins"],
+        h2h_draws=h2h["h2h_draws"],
+        h2h_away_wins=h2h["h2h_away_wins"],
+        h2h_home_win_rate=h2h["h2h_home_win_rate"],
+        home_days_rest=home_rest,
+        away_days_rest=away_rest,
+        home_fixture_congestion=home_congestion,
+        away_fixture_congestion=away_congestion,
     )
     return feature
 

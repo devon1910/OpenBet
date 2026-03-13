@@ -423,6 +423,52 @@
 
         .admin-log.active { display: block; }
 
+        .backtest-results {
+            display: none;
+            margin-top: 12px;
+            background: rgba(0,0,0,0.25);
+            border-radius: 8px;
+            padding: 14px;
+        }
+        .backtest-header {
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 10px;
+            font-size: 13px;
+        }
+        .backtest-stats, .backtest-breakdown {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+        .backtest-stat {
+            color: var(--text-secondary);
+        }
+        .backtest-stat strong { color: var(--text-primary); }
+        .backtest-days { margin-top: 10px; font-size: 12px; }
+        .backtest-day-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 6px;
+            margin-top: 6px;
+        }
+        .backtest-day {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            background: rgba(255,255,255,0.05);
+        }
+        .backtest-day.perfect { background: rgba(34,197,94,0.2); border-left: 3px solid #22c55e; }
+        .backtest-day.good { background: rgba(59,130,246,0.15); border-left: 3px solid #3b82f6; }
+        .backtest-day.poor { background: rgba(239,68,68,0.15); border-left: 3px solid #ef4444; }
+        .day-date { color: var(--text-secondary); }
+        .day-score { font-weight: 600; }
+        .day-profit { color: var(--text-secondary); }
+
         .admin-stats {
             display: flex;
             gap: 16px;
@@ -483,9 +529,11 @@
                 <button class="admin-btn" onclick="runAdmin('fetch-odds', this)">Fetch Odds</button>
                 <button class="admin-btn" onclick="runAdmin('build-features', this)">Build Features</button>
                 <button class="admin-btn" onclick="runAdmin('train', this)">Train Model</button>
+                <button class="admin-btn" onclick="runBacktest(this)">Run Backtest</button>
                 <button class="admin-btn" onclick="loadStatus()">Refresh Status</button>
             </div>
             <div class="admin-log" id="adminLog"></div>
+            <div class="backtest-results" id="backtestResults"></div>
         </div>
     </div>
 
@@ -672,6 +720,65 @@
             btn.disabled = false;
             btn.classList.remove('running');
             btn.textContent = label;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        async function runBacktest(btn) {
+            const log = document.getElementById('adminLog');
+            const resultsDiv = document.getElementById('backtestResults');
+            log.classList.add('active');
+            btn.disabled = true;
+            btn.classList.add('running');
+            btn.textContent = 'Running...';
+            log.textContent += '> backtest (last 8 weeks)...\n';
+
+            try {
+                const res = await fetch('/admin/backtest', { method: 'POST' });
+                const d = await res.json();
+                log.textContent += `${d.message || JSON.stringify(d)}\n`;
+
+                if (d.results) {
+                    const r = d.results;
+                    let html = `<div class="backtest-header">Backtest Results (${r.start_date} to ${r.end_date})</div>`;
+                    html += `<div class="backtest-stats">
+                        <span class="backtest-stat"><strong>${r.total_picks}</strong> picks</span>
+                        <span class="backtest-stat"><strong>${(r.accuracy * 100).toFixed(1)}%</strong> accuracy</span>
+                        <span class="backtest-stat"><strong>${r.roi !== null ? r.roi.toFixed(1) + '%' : 'N/A'}</strong> ROI</span>
+                        <span class="backtest-stat"><strong>${r.perfect_matchdays}/${r.total_matchdays}</strong> perfect days</span>
+                        <span class="backtest-stat"><strong>${r.avg_edge !== null ? (r.avg_edge * 100).toFixed(1) + '%' : 'N/A'}</strong> avg edge</span>
+                    </div>`;
+
+                    if (r.by_bet_type) {
+                        html += '<div class="backtest-breakdown"><strong>By Bet Type:</strong>';
+                        for (const [type, stats] of Object.entries(r.by_bet_type)) {
+                            html += ` <span class="backtest-stat">${type}: ${stats.correct}/${stats.total} (${(stats.accuracy * 100).toFixed(0)}%)</span>`;
+                        }
+                        html += '</div>';
+                    }
+
+                    if (r.matchday_results && r.matchday_results.length > 0) {
+                        html += '<div class="backtest-days"><strong>Per Matchday:</strong><div class="backtest-day-grid">';
+                        for (const day of r.matchday_results) {
+                            const cls = day.all_correct ? 'perfect' : (day.accuracy >= 0.6 ? 'good' : 'poor');
+                            html += `<div class="backtest-day ${cls}">
+                                <span class="day-date">${day.date}</span>
+                                <span class="day-score">${day.correct_picks}/${day.total_picks}</span>
+                                <span class="day-profit">${day.profit >= 0 ? '+' : ''}${day.profit.toFixed(2)}</span>
+                            </div>`;
+                        }
+                        html += '</div></div>';
+                    }
+
+                    resultsDiv.innerHTML = html;
+                    resultsDiv.style.display = 'block';
+                }
+            } catch (e) {
+                log.textContent += `Error: ${e.message}\n`;
+            }
+
+            btn.disabled = false;
+            btn.classList.remove('running');
+            btn.textContent = 'Run Backtest';
             log.scrollTop = log.scrollHeight;
         }
 

@@ -129,6 +129,21 @@ async def train_model():
     return {"status": "ok", "message": "Training complete.", "metrics": metrics}
 
 
+@router.post("/resolve-outcomes")
+async def resolve_outcomes():
+    """Resolve WIN/LOSS outcomes for all picks on finished matches."""
+    from src.database import async_session
+    from src.learning.tracker import update_outcomes
+
+    try:
+        async with async_session() as session:
+            count = await update_outcomes(session)
+        return {"status": "ok", "message": f"Resolved outcomes for {count} picks."}
+    except Exception as e:
+        logger.exception("Outcome resolution failed")
+        return {"status": "error", "message": str(e)}
+
+
 @router.post("/backtest")
 async def run_backtest():
     """Run a walk-forward backtest over recent historical data."""

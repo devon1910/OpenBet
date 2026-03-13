@@ -7,7 +7,7 @@ against actual results.
 
 import logging
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import numpy as np
 import pandas as pd
@@ -47,8 +47,8 @@ async def backtest(
         .where(
             Match.status == "FINISHED",
             Match.home_goals.is_not(None),
-            Match.match_date >= f"{start_date}T00:00:00+00:00",
-            Match.match_date <= f"{end_date}T23:59:59+00:00",
+            Match.match_date >= datetime(start_date.year, start_date.month, start_date.day, tzinfo=timezone.utc),
+            Match.match_date <= datetime(end_date.year, end_date.month, end_date.day, 23, 59, 59, tzinfo=timezone.utc),
         )
         .options(
             joinedload(Match.home_team),

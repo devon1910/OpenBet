@@ -249,78 +249,37 @@ async def _run_predictions_for_date(target_date: date, db: AsyncSession) -> list
             "feature": feature,
         }
 
-        # Evaluate betting opportunities (threshold-based)
-        bet_picks = evaluate_betting_opportunity(prob_home, prob_draw, prob_away)
+        # Evaluate betting opportunities with value edge filtering
+        odds_home = feature.odds_home if feature else None
+        odds_draw = feature.odds_draw if feature else None
+        odds_away = feature.odds_away if feature else None
 
-        if bet_picks:
-            for bp in bet_picks:
-                bp["reasoning"] = _build_reasoning(bp["pick_type"], bp["pick_value"], ctx)
-                all_candidates.append({
-                    "prediction": prediction,
-                    "match": match,
-                    "competition_id": match.competition_id,
-                    **bp,
-                })
-        else:
-            # No threshold met — pick the best available option
-            home_not_lose = prob_home + prob_draw
-            away_not_lose = prob_away + prob_draw
+        bet_picks = evaluate_betting_opportunity(
+            prob_home, prob_draw, prob_away,
+            odds_home=odds_home,
+            odds_draw=odds_draw,
+            odds_away=odds_away,
+        )
 
-            # Build all candidate options for this match and pick the best
-            options = [
-                ("STRAIGHT_WIN", "HOME", prob_home),
-                ("STRAIGHT_WIN", "AWAY", prob_away),
-                ("DOUBLE_CHANCE", "1X", home_not_lose),
-                ("DOUBLE_CHANCE", "X2", away_not_lose),
-            ]
-
-            # Pick selection: use the dominant probability to decide pick type.
-            # Straight win when one side is clearly stronger (>40%).
-            # Draw pick when draw is the highest probability.
-            # Double chance only for genuinely uncertain matches.
-            margin = prob_home - prob_away
-            max_prob = max(prob_home, prob_draw, prob_away)
-
-            if prob_home >= 0.40 and prob_home == max_prob:
-                pick_type, pick_value, conf = "STRAIGHT_WIN", "HOME", prob_home
-            elif prob_away >= 0.40 and prob_away == max_prob:
-                pick_type, pick_value, conf = "STRAIGHT_WIN", "AWAY", prob_away
-            elif prob_draw >= 0.30 and prob_draw == max_prob:
-                # Draw is the most likely outcome — pick draw via double chance
-                # on the weaker side (higher value bet)
-                if prob_home >= prob_away:
-                    pick_type, pick_value, conf = "DOUBLE_CHANCE", "1X", home_not_lose
-                else:
-                    pick_type, pick_value, conf = "DOUBLE_CHANCE", "X2", away_not_lose
-            elif prob_home > prob_away and margin > 0.05:
-                pick_type, pick_value, conf = "STRAIGHT_WIN", "HOME", prob_home
-            elif prob_away > prob_home and margin < -0.05:
-                pick_type, pick_value, conf = "STRAIGHT_WIN", "AWAY", prob_away
-            elif prob_home >= prob_away:
-                pick_type, pick_value, conf = "DOUBLE_CHANCE", "1X", home_not_lose
-            else:
-                pick_type, pick_value, conf = "DOUBLE_CHANCE", "X2", away_not_lose
-
-            reasoning = _build_reasoning(pick_type, pick_value, ctx)
+        for bp in bet_picks:
+            bp["reasoning"] = _build_reasoning(bp["pick_type"], bp["pick_value"], ctx)
             all_candidates.append({
                 "prediction": prediction,
                 "match": match,
                 "competition_id": match.competition_id,
-                "pick_type": pick_type,
-                "pick_value": pick_value,
-                "confidence": conf,
-                "reasoning": reasoning,
+                **bp,
             })
 
-    # Sort by confidence, diversify across leagues, take top 12
-    all_candidates.sort(key=lambda x: x["confidence"], reverse=True)
+    # Sort by edge (value) then confidence, diversify across leagues, take top picks
+    from src.config import settings
+    all_candidates.sort(key=lambda x: (x.get("edge", 0), x["confidence"]), reverse=True)
     league_counts: dict[int, int] = defaultdict(int)
     selected = []
     for c in all_candidates:
-        if len(selected) >= 12:
+        if len(selected) >= settings.max_picks_per_matchday:
             break
         comp_id = c["competition_id"]
-        if league_counts[comp_id] >= 4:
+        if league_counts[comp_id] >= 2:
             continue
         selected.append(c)
         league_counts[comp_id] += 1
@@ -334,6 +293,8 @@ async def _run_predictions_for_date(target_date: date, db: AsyncSession) -> list
             pick_type=p["pick_type"],
             pick_value=p["pick_value"],
             confidence=p["confidence"],
+            edge=p.get("edge"),
+            odds_decimal=p.get("odds_decimal"),
             reasoning=p.get("reasoning", ""),
             matchday_label=f"MD{p['match'].matchday or '?'}",
         )

@@ -5,7 +5,7 @@ Computes accuracy, Brier score, ROI, and breakdowns by bet type and league.
 
 import logging
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import numpy as np
 from sqlalchemy import select
@@ -34,8 +34,8 @@ async def evaluate_period(
         .join(Match, Match.id == Pick.match_id)
         .where(
             Pick.outcome.is_not(None),
-            Match.match_date >= f"{period_start}T00:00:00+00:00",
-            Match.match_date <= f"{period_end}T23:59:59+00:00",
+            Match.match_date >= datetime(period_start.year, period_start.month, period_start.day, tzinfo=timezone.utc),
+            Match.match_date <= datetime(period_end.year, period_end.month, period_end.day, 23, 59, 59, tzinfo=timezone.utc),
             Prediction.model_version == model_version,
         )
         .options(joinedload(Match.competition))

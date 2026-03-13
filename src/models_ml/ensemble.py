@@ -58,7 +58,6 @@ def train_meta_learner(
         Trained LogisticRegression meta-learner
     """
     meta_model = LogisticRegression(
-        multi_class="multinomial",
         solver="lbfgs",
         C=1.0,
         max_iter=1000,

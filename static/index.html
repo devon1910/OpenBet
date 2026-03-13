@@ -340,11 +340,112 @@
             font-weight: 500;
         }
 
+        /* --- ADMIN PANEL --- */
+        .admin-toggle {
+            max-width: 900px;
+            margin: 12px auto 0;
+            padding: 0 24px;
+            text-align: right;
+        }
+
+        .admin-toggle button {
+            background: none;
+            border: none;
+            color: var(--text-faint);
+            font-size: 11px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .admin-toggle button:hover { color: var(--text-secondary); }
+
+        .admin-panel {
+            max-width: 900px;
+            margin: 8px auto 0;
+            padding: 0 24px;
+            display: none;
+        }
+
+        .admin-panel.open { display: block; }
+
+        .admin-inner {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px 20px;
+        }
+
+        .admin-title {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .admin-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .admin-btn {
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: var(--surface-raised);
+            color: var(--text);
+            transition: all 0.15s;
+        }
+
+        .admin-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .admin-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .admin-btn.running { border-color: var(--yellow); color: var(--yellow); }
+
+        .admin-log {
+            font-size: 11px;
+            color: var(--text-secondary);
+            background: rgba(0,0,0,0.3);
+            border-radius: 6px;
+            padding: 10px 12px;
+            max-height: 120px;
+            overflow-y: auto;
+            display: none;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+        }
+
+        .admin-log.active { display: block; }
+
+        .admin-stats {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .admin-stat {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .admin-stat strong {
+            color: var(--text);
+            font-weight: 600;
+        }
+
         @media (max-width: 600px) {
             .header-inner { flex-direction: column; align-items: flex-start; }
             .teams { flex-direction: column; gap: 4px; }
             .team-name { text-align: center !important; }
             .tip-row { flex-direction: column; align-items: flex-start; }
+            .admin-actions { flex-direction: column; }
         }
     </style>
 </head>
@@ -367,6 +468,25 @@
     <div class="status-bar" id="statusBar">
         <span class="status-title" id="statusTitle"></span>
         <span class="status-count" id="statusCount"></span>
+    </div>
+
+    <div class="admin-toggle">
+        <button onclick="toggleAdmin()">Admin Panel</button>
+    </div>
+
+    <div class="admin-panel" id="adminPanel">
+        <div class="admin-inner">
+            <div class="admin-title">Data Pipeline</div>
+            <div class="admin-stats" id="adminStats"></div>
+            <div class="admin-actions">
+                <button class="admin-btn" onclick="runAdmin('sync-data', this)">Sync Match Data</button>
+                <button class="admin-btn" onclick="runAdmin('fetch-odds', this)">Fetch Odds</button>
+                <button class="admin-btn" onclick="runAdmin('build-features', this)">Build Features</button>
+                <button class="admin-btn" onclick="runAdmin('train', this)">Train Model</button>
+                <button class="admin-btn" onclick="loadStatus()">Refresh Status</button>
+            </div>
+            <div class="admin-log" id="adminLog"></div>
+        </div>
     </div>
 
     <div class="content">
@@ -497,6 +617,62 @@
                 grid.innerHTML = '<div class="message error" style="padding:20px 0 10px">Server not connected — showing preview</div>'
                     + '<div class="picks-list">' + [demo, demo2].map(p => createPickCard(p)).join('') + '</div>';
             }
+        }
+
+        // --- Admin Panel ---
+        function toggleAdmin() {
+            document.getElementById('adminPanel').classList.toggle('open');
+            const panel = document.getElementById('adminPanel');
+            if (panel.classList.contains('open')) loadStatus();
+        }
+
+        async function loadStatus() {
+            const el = document.getElementById('adminStats');
+            try {
+                const res = await fetch('/admin/status');
+                const d = await res.json();
+                el.innerHTML = `
+                    <span class="admin-stat"><strong>${d.total_matches || 0}</strong> matches</span>
+                    <span class="admin-stat"><strong>${d.finished_matches || 0}</strong> finished</span>
+                    <span class="admin-stat"><strong>${d.features_built || 0}</strong> features</span>
+                    <span class="admin-stat"><strong>${d.with_odds || 0}</strong> with odds</span>
+                    <span class="admin-stat">XGB: <strong>${d.xgb_model ? 'Yes' : 'No'}</strong></span>
+                    <span class="admin-stat">Meta: <strong>${d.meta_learner ? 'Yes' : 'No'}</strong></span>
+                `;
+            } catch { el.innerHTML = '<span class="admin-stat">Server offline</span>'; }
+        }
+
+        async function runAdmin(action, btn) {
+            const log = document.getElementById('adminLog');
+            log.classList.add('active');
+            btn.disabled = true;
+            btn.classList.add('running');
+            const label = btn.textContent;
+            btn.textContent = 'Running...';
+            log.textContent += `> ${action}...\n`;
+
+            try {
+                const res = await fetch(`/admin/${action}`, { method: 'POST' });
+                const text = await res.text();
+                let d;
+                try { d = JSON.parse(text); } catch {
+                    log.textContent += `Server error (${res.status}): ${text.substring(0, 500)}\n`;
+                    btn.disabled = false; btn.classList.remove('running'); btn.textContent = label;
+                    return;
+                }
+                log.textContent += `${d.message || JSON.stringify(d)}\n`;
+                if (d.metrics) {
+                    log.textContent += `Metrics: ${JSON.stringify(d.metrics, null, 2)}\n`;
+                }
+                loadStatus();
+            } catch (e) {
+                log.textContent += `Error: ${e.message}\n`;
+            }
+
+            btn.disabled = false;
+            btn.classList.remove('running');
+            btn.textContent = label;
+            log.scrollTop = log.scrollHeight;
         }
 
         window.addEventListener('DOMContentLoaded', () => fetchPicks());

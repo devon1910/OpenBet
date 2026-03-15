@@ -42,6 +42,9 @@ class BaseCollector:
         url = f"{self.base_url}{path}"
         logger.debug("GET %s", url)
         async with session.get(url, params=params) as resp:
+            if resp.status in (403, 404):
+                logger.warning("Skipping %s — HTTP %s (subscription tier or not found)", url, resp.status)
+                return {}
             resp.raise_for_status()
             return await resp.json()
 

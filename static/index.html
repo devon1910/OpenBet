@@ -494,6 +494,63 @@
             .admin-actions { flex-direction: column; }
         }
 
+        /* --- PIPELINE STATUS FOOTER --- */
+        .pipeline-footer {
+            border-top: 1px solid var(--border);
+            margin-top: 40px;
+            padding: 12px 24px;
+        }
+
+        .pipeline-footer-inner {
+            max-width: 900px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .pipeline-label {
+            font-size: 11px;
+            color: var(--text-faint);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+            flex-shrink: 0;
+        }
+
+        .pipeline-items {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            flex: 1;
+        }
+
+        .pipeline-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .pipeline-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--text-faint);
+            flex-shrink: 0;
+        }
+
+        .pipeline-dot.ok      { background: var(--green); box-shadow: 0 0 4px var(--green); }
+        .pipeline-dot.error   { background: var(--red); }
+        .pipeline-dot.running { background: var(--yellow); animation: pulse 1s infinite; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.3; }
+        }
+
         /* --- LOGIN MODAL --- */
         .modal-overlay {
             display: none;
@@ -657,6 +714,15 @@
     <div class="content">
         <div id="picksGrid"></div>
     </div>
+
+    <footer class="pipeline-footer">
+        <div class="pipeline-footer-inner">
+            <span class="pipeline-label">Engine</span>
+            <div class="pipeline-items" id="pipelineItems">
+                <span class="pipeline-item"><span class="pipeline-dot"></span>Loading…</span>
+            </div>
+        </div>
+    </footer>
 
     <script>
         const dateInput = document.getElementById('matchDate');
@@ -990,8 +1056,41 @@
             log.scrollTop = log.scrollHeight;
         }
 
-        window.addEventListener('DOMContentLoaded', () => fetchPicks());
+        // --- Pipeline status footer ---
+        async function loadPipelineStatus() {
+            const el = document.getElementById('pipelineItems');
+            try {
+                const res = await fetch('/pipeline-status');
+                if (!res.ok) return;
+                const d = await res.json();
+
+                const fmt = (info, label, extra) => {
+                    const s = info?.status;
+                    const dotClass = s === 'ok' ? 'ok' : s === 'error' ? 'error' : s === 'running' ? 'running' : '';
+                    const lastRun = info?.last_run ? `Last: ${info.last_run}` : 'Never run';
+                    const extraText = extra ? ` · ${extra}` : '';
+                    return `<span class="pipeline-item">
+                        <span class="pipeline-dot ${dotClass}"></span>
+                        <span><strong style="color:var(--text)">${label}</strong> &mdash; ${lastRun}${extraText}</span>
+                    </span>`;
+                };
+
+                const nextRun = d.pipeline?.next_run ? `Next: ${d.pipeline.next_run}` : '';
+                const retrainAction = d.retrain?.action === 'retrained' ? 'Retrained' : d.retrain?.action === 'none' ? 'No change' : '';
+
+                el.innerHTML =
+                    fmt(d.pipeline, 'Data Pipeline', nextRun) +
+                    fmt(d.outcomes, 'Outcomes', '') +
+                    fmt(d.retrain,  'Model', retrainAction);
+            } catch {
+                el.innerHTML = '<span class="pipeline-item"><span class="pipeline-dot"></span>Status unavailable</span>';
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => { fetchPicks(); loadPipelineStatus(); });
         dateInput.addEventListener('change', () => fetchPicks());
+        // Refresh pipeline status every 60 seconds
+        setInterval(loadPipelineStatus, 60_000);
     </script>
 </body>
 </html>

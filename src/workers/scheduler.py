@@ -15,6 +15,7 @@ Model evaluation + retraining runs every Monday at 04:00 UTC.
 
 import asyncio
 import logging
+from datetime import datetime, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -22,6 +23,17 @@ from apscheduler.triggers.cron import CronTrigger
 logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler(timezone="UTC")
+
+# Public pipeline status — readable by anyone via GET /pipeline-status
+pipeline_status: dict = {
+    "pipeline": {"last_run": None, "status": None, "next_run": None},
+    "retrain":  {"last_run": None, "status": None, "action": None},
+    "outcomes": {"last_run": None, "status": None},
+}
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
 
 async def _sync_data():
@@ -111,9 +123,16 @@ async def _update_outcomes():
     from src.learning.tracker import update_outcomes
 
     logger.info("[scheduler] Resolving pick outcomes...")
-    async with async_session() as session:
-        count = await update_outcomes(session)
-    logger.info("[scheduler] Resolved %d outcomes.", count)
+    try:
+        async with async_session() as session:
+            count = await update_outcomes(session)
+        pipeline_status["outcomes"]["status"] = "ok"
+        logger.info("[scheduler] Resolved %d outcomes.", count)
+    except Exception:
+        logger.exception("[scheduler] Outcome resolution failed")
+        pipeline_status["outcomes"]["status"] = "error"
+    finally:
+        pipeline_status["outcomes"]["last_run"] = _now_iso()
 
 
 async def _evaluate_and_retrain():
@@ -122,20 +141,38 @@ async def _evaluate_and_retrain():
     from src.config import settings
 
     logger.info("[scheduler] Evaluating model performance...")
-    async with async_session() as session:
-        result = await check_and_retrain(session, settings.model_version)
-    logger.info("[scheduler] Evaluation result: %s", result.get("action"))
+    try:
+        async with async_session() as session:
+            result = await check_and_retrain(session, settings.model_version)
+        action = result.get("action", "none")
+        pipeline_status["retrain"]["status"] = "ok"
+        pipeline_status["retrain"]["action"] = action
+        logger.info("[scheduler] Evaluation result: %s", action)
+    except Exception:
+        logger.exception("[scheduler] Evaluation/retraining failed")
+        pipeline_status["retrain"]["status"] = "error"
+        pipeline_status["retrain"]["action"] = None
+    finally:
+        pipeline_status["retrain"]["last_run"] = _now_iso()
 
 
 async def _run_pipeline():
     """Full 6-hour pipeline: sync → odds → features → predictions."""
+    pipeline_status["pipeline"]["status"] = "running"
     try:
         await _sync_data()
         await _fetch_odds()
         await _build_features()
         await _generate_predictions()
+        pipeline_status["pipeline"]["status"] = "ok"
     except Exception:
         logger.exception("[scheduler] Pipeline run failed")
+        pipeline_status["pipeline"]["status"] = "error"
+    finally:
+        pipeline_status["pipeline"]["last_run"] = _now_iso()
+        job = scheduler.get_job("pipeline_6h")
+        if job and job.next_run_time:
+            pipeline_status["pipeline"]["next_run"] = job.next_run_time.strftime("%Y-%m-%d %H:%M UTC")
 
 
 def start_scheduler():
@@ -169,3 +206,8 @@ def start_scheduler():
 
     scheduler.start()
     logger.info("[scheduler] APScheduler started. Jobs: %s", [j.id for j in scheduler.get_jobs()])
+
+    # Populate next_run on startup
+    job = scheduler.get_job("pipeline_6h")
+    if job and job.next_run_time:
+        pipeline_status["pipeline"]["next_run"] = job.next_run_time.strftime("%Y-%m-%d %H:%M UTC")

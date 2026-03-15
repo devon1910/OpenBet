@@ -20,11 +20,18 @@ logger = logging.getLogger(__name__)
 
 # The Odds API sport keys for football leagues
 SPORT_KEYS = [
-    "soccer_epl",              # Premier League
-    "soccer_spain_la_liga",    # La Liga
-    "soccer_germany_bundesliga",  # Bundesliga
-    "soccer_italy_serie_a",    # Serie A
-    "soccer_france_ligue_one", # Ligue 1
+    "soccer_epl",                        # Premier League
+    "soccer_spain_la_liga",              # La Liga
+    "soccer_germany_bundesliga",         # Bundesliga
+    "soccer_italy_serie_a",              # Serie A
+    "soccer_france_ligue_one",           # Ligue 1
+    "soccer_netherlands_eredivisie",     # Eredivisie
+    "soccer_portugal_primeira_liga",     # Primeira Liga
+    "soccer_england_championship",       # Championship
+    "soccer_uefa_champs_league",         # Champions League
+    "soccer_spain_segunda_division",     # La Liga 2
+    "soccer_germany_bundesliga2",        # Bundesliga 2
+    "soccer_turkey_super_league",        # Turkish Süper Lig
 ]
 
 

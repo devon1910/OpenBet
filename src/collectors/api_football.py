@@ -24,6 +24,12 @@ LEAGUE_MAP = {
     "BL1": 78,   # Bundesliga
     "SA": 135,   # Serie A
     "FL1": 61,   # Ligue 1
+    "DED": 88,   # Eredivisie
+    "PPL": 94,   # Primeira Liga
+    "ELC": 40,   # Championship
+    "CL": 2,     # Champions League
+    "EL": 3,     # Europa League
+    "TR1": 203,  # Turkish Süper Lig
 }
 
 

@@ -493,6 +493,100 @@
             .tip-row { flex-direction: column; align-items: flex-start; }
             .admin-actions { flex-direction: column; }
         }
+
+        /* --- LOGIN MODAL --- */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.open { display: flex; }
+
+        .modal {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 32px;
+            width: 100%;
+            max-width: 360px;
+            margin: 16px;
+        }
+
+        .modal-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .modal-sub {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .form-group input {
+            width: 100%;
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 9px 12px;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        .form-group input:focus { border-color: var(--accent); }
+
+        .login-error {
+            font-size: 12px;
+            color: var(--red);
+            margin-bottom: 12px;
+            display: none;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 20px;
+        }
+
+        .btn-cancel {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-cancel:hover { color: var(--text); }
+
+        /* Admin header button */
+        .btn-admin {
+            background: transparent;
+            color: var(--text-faint);
+            border: 1px solid transparent;
+            font-size: 12px;
+        }
+
+        .btn-admin:hover { color: var(--text-secondary); border-color: var(--border); }
+        .btn-admin.authed { color: var(--accent); border-color: rgba(88,166,255,0.25); }
     </style>
 </head>
 <body>
@@ -507,6 +601,7 @@
                 <input type="date" id="matchDate">
                 <button class="btn btn-primary" onclick="fetchPicks()">Get Tips</button>
                 <button class="btn btn-ghost" onclick="fetchPicks(true)">Regenerate</button>
+                <button class="btn btn-admin" id="adminBtn" onclick="handleAdminBtn()">Admin</button>
             </div>
         </div>
     </header>
@@ -516,13 +611,34 @@
         <span class="status-count" id="statusCount"></span>
     </div>
 
-    <div class="admin-toggle">
-        <button onclick="toggleAdmin()">Admin Panel</button>
+    <!-- Login Modal -->
+    <div class="modal-overlay" id="loginModal" onclick="handleOverlayClick(event)">
+        <div class="modal">
+            <div class="modal-title">Admin Login</div>
+            <div class="modal-sub">Enter your credentials to access the control panel.</div>
+            <div class="form-group">
+                <label for="loginUser">Username</label>
+                <input type="text" id="loginUser" autocomplete="username" placeholder="admin">
+            </div>
+            <div class="form-group">
+                <label for="loginPass">Password</label>
+                <input type="password" id="loginPass" autocomplete="current-password" placeholder="••••••••"
+                    onkeydown="if(event.key==='Enter') submitLogin()">
+            </div>
+            <div class="login-error" id="loginError"></div>
+            <div class="modal-actions">
+                <button class="btn btn-primary" style="flex:1" onclick="submitLogin()" id="loginSubmitBtn">Sign in</button>
+                <button class="btn btn-cancel btn-admin" onclick="closeLoginModal()">Cancel</button>
+            </div>
+        </div>
     </div>
 
     <div class="admin-panel" id="adminPanel">
         <div class="admin-inner">
-            <div class="admin-title">Data Pipeline</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <div class="admin-title" style="margin-bottom:0">Data Pipeline</div>
+                <button class="admin-btn" style="font-size:11px;padding:4px 10px;color:var(--red);border-color:rgba(248,81,73,0.3)" onclick="clearToken()">Logout</button>
+            </div>
             <div class="admin-stats" id="adminStats"></div>
             <div class="admin-actions">
                 <button class="admin-btn" onclick="runAdmin('sync-data', this)">Sync Match Data</button>
@@ -545,6 +661,94 @@
     <script>
         const dateInput = document.getElementById('matchDate');
         dateInput.value = new Date().toISOString().split('T')[0];
+
+        // ── Auth state (in-memory only, never persisted to localStorage) ──
+        let _token = null;
+
+        function isAuthed() { return !!_token; }
+
+        function setToken(t) {
+            _token = t;
+            document.getElementById('adminBtn').classList.toggle('authed', true);
+            document.getElementById('adminBtn').textContent = 'Admin ✓';
+        }
+
+        function clearToken() {
+            _token = null;
+            document.getElementById('adminBtn').classList.remove('authed');
+            document.getElementById('adminBtn').textContent = 'Admin';
+            document.getElementById('adminPanel').classList.remove('open');
+        }
+
+        function authHeaders() {
+            return _token ? { 'Authorization': `Bearer ${_token}` } : {};
+        }
+
+        // ── Admin button: toggle panel if authed, else open login modal ──
+        function handleAdminBtn() {
+            if (isAuthed()) {
+                const panel = document.getElementById('adminPanel');
+                panel.classList.toggle('open');
+                if (panel.classList.contains('open')) loadStatus();
+            } else {
+                openLoginModal();
+            }
+        }
+
+        // ── Login modal ──
+        function openLoginModal() {
+            document.getElementById('loginUser').value = '';
+            document.getElementById('loginPass').value = '';
+            document.getElementById('loginError').style.display = 'none';
+            document.getElementById('loginModal').classList.add('open');
+            setTimeout(() => document.getElementById('loginUser').focus(), 50);
+        }
+
+        function closeLoginModal() {
+            document.getElementById('loginModal').classList.remove('open');
+        }
+
+        function handleOverlayClick(e) {
+            if (e.target === document.getElementById('loginModal')) closeLoginModal();
+        }
+
+        async function submitLogin() {
+            const btn = document.getElementById('loginSubmitBtn');
+            const errEl = document.getElementById('loginError');
+            const username = document.getElementById('loginUser').value.trim();
+            const password = document.getElementById('loginPass').value;
+
+            errEl.style.display = 'none';
+            btn.disabled = true;
+            btn.textContent = 'Signing in...';
+
+            try {
+                const res = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password }),
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    errEl.textContent = data.detail || 'Invalid credentials.';
+                    errEl.style.display = 'block';
+                    return;
+                }
+
+                setToken(data.access_token);
+                closeLoginModal();
+                // Open admin panel right after login
+                document.getElementById('adminPanel').classList.add('open');
+                loadStatus();
+            } catch {
+                errEl.textContent = 'Server unreachable. Try again.';
+                errEl.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Sign in';
+            }
+        }
 
         function formatPickLabel(pick) {
             const v = pick.pick_value;
@@ -633,7 +837,7 @@
                 }
 
                 if (!data.picks || data.picks.length === 0) {
-                    grid.innerHTML = '<div class="message">No matches scheduled for this date.</div>';
+                    grid.innerHTML = '<div class="message">No League matches scheduled for this date.</div>';
                     return;
                 }
 
@@ -669,16 +873,11 @@
         }
 
         // --- Admin Panel ---
-        function toggleAdmin() {
-            document.getElementById('adminPanel').classList.toggle('open');
-            const panel = document.getElementById('adminPanel');
-            if (panel.classList.contains('open')) loadStatus();
-        }
-
         async function loadStatus() {
             const el = document.getElementById('adminStats');
             try {
-                const res = await fetch('/admin/status');
+                const res = await fetch('/admin/status', { headers: authHeaders() });
+                if (res.status === 401) { clearToken(); return; }
                 const d = await res.json();
                 el.innerHTML = `
                     <span class="admin-stat"><strong>${d.total_matches || 0}</strong> matches</span>
@@ -701,7 +900,14 @@
             log.textContent += `> ${action}...\n`;
 
             try {
-                const res = await fetch(`/admin/${action}`, { method: 'POST' });
+                const res = await fetch(`/admin/${action}`, { method: 'POST', headers: authHeaders() });
+                if (res.status === 401) {
+                    clearToken();
+                    log.textContent += 'Session expired. Please log in again.\n';
+                    btn.disabled = false; btn.classList.remove('running'); btn.textContent = label;
+                    openLoginModal();
+                    return;
+                }
                 const text = await res.text();
                 let d;
                 try { d = JSON.parse(text); } catch {
@@ -734,7 +940,8 @@
             log.textContent += '> backtest (last 8 weeks)...\n';
 
             try {
-                const res = await fetch('/admin/backtest', { method: 'POST' });
+                const res = await fetch('/admin/backtest', { method: 'POST', headers: authHeaders() });
+                if (res.status === 401) { clearToken(); openLoginModal(); return; }
                 const d = await res.json();
                 log.textContent += `${d.message || JSON.stringify(d)}\n`;
 

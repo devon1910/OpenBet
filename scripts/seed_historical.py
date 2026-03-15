@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Seasons to backfill (football-data.org uses start year)
-SEASONS = ["2023", "2024", "2025"]
+SEASONS = ["2020", "2021", "2022", "2023", "2024", "2025"]
 
 
 async def main():

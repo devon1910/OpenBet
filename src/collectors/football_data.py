@@ -28,6 +28,9 @@ COMPETITIONS = {
     "DED": "Eredivisie",
     "PPL": "Primeira Liga",
     "ELC": "Championship",
+    "CL": "Champions League",
+    "EL": "Europa League",
+    "TR1": "Turkish Süper Lig",
 }
 
 

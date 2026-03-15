@@ -35,6 +35,13 @@ class Settings(BaseSettings):
     # Claude reasoning
     claude_max_adjustment: float = 0.10
 
+    # Admin auth
+    admin_username: str = "admin"
+    admin_password_hash: str = ""  # set ADMIN_PASSWORD_HASH in .env
+    jwt_secret: str = "change-me-in-production"
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 480  # 8 hours
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

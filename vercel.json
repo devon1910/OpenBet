@@ -4,12 +4,12 @@
   "installCommand": "",
   "outputDirectory": "static",
   "rewrites": [
-    { "source": "/picks/(.*)",           "destination": "https://AZURE_APP_URL/picks/$1" },
-    { "source": "/auth/(.*)",            "destination": "https://AZURE_APP_URL/auth/$1" },
-    { "source": "/admin/(.*)",           "destination": "https://AZURE_APP_URL/admin/$1" },
-    { "source": "/pipeline-status",      "destination": "https://AZURE_APP_URL/pipeline-status" },
-    { "source": "/performance/(.*)",     "destination": "https://AZURE_APP_URL/performance/$1" },
-    { "source": "/predictions/(.*)",     "destination": "https://AZURE_APP_URL/predictions/$1" },
-    { "source": "/health",               "destination": "https://AZURE_APP_URL/health" }
+    { "source": "/picks/(.*)",           "destination": "https://openbet-e3agfzhsesaqaphw.canadacentral-01.azurewebsites.net/picks/$1" },
+    { "source": "/auth/(.*)",            "destination": "https://openbet-e3agfzhsesaqaphw.canadacentral-01.azurewebsites.net/auth/$1" },
+    { "source": "/admin/(.*)",           "destination": "https://openbet-e3agfzhsesaqaphw.canadacentral-01.azurewebsites.net/admin/$1" },
+    { "source": "/pipeline-status",      "destination": "https://openbet-e3agfzhsesaqaphw.canadacentral-01.azurewebsites.net/pipeline-status" },
+    { "source": "/performance/(.*)",     "destination": "https://openbet-e3agfzhsesaqaphw.canadacentral-01.azurewebsites.net/performance/$1" },
+    { "source": "/predictions/(.*)",     "destination": "https://openbet-e3agfzhsesaqaphw.canadacentral-01.azurewebsites.net/predictions/$1" },
+    { "source": "/health",               "destination": "https://openbet-e3agfzhsesaqaphw.canadacentral-01.azurewebsites.net/health" }
   ]
 }

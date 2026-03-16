@@ -13,6 +13,15 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Skip if columns already exist (created by 000_initial on fresh DBs)
+    conn = op.get_bind()
+    result = conn.execute(sa.text(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_name='match_features' AND column_name='h2h_home_win_rate'"
+    ))
+    if result.fetchone():
+        return
+
     # Match context features on match_features
     op.add_column("match_features", sa.Column("h2h_home_win_rate", sa.Float(), nullable=True))
     op.add_column("match_features", sa.Column("home_days_rest", sa.Integer(), nullable=True))

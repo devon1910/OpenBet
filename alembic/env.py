@@ -15,7 +15,11 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Override DB URL from environment (avoid hardcoding credentials)
-db_url = os.getenv("DATABASE_URL_SYNC", "postgresql://openbet:openbet@localhost:5433/openbet")
+db_url = os.getenv("DATABASE_URL_SYNC") or os.getenv("DATABASE_URL", "postgresql://openbet:openbet@localhost:5433/openbet")
+# Normalize URL: Supabase gives postgres://, SQLAlchemy needs postgresql://
+db_url = db_url.replace("postgres://", "postgresql://", 1)
+# Strip async driver prefix if present (alembic uses sync)
+db_url = db_url.replace("postgresql+asyncpg://", "postgresql://", 1)
 config.set_main_option("sqlalchemy.url", db_url)
 
 target_metadata = Base.metadata

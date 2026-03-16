@@ -25,9 +25,15 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          echo "Raw prefix: $(echo $DATABASE_URL | cut -c1-20)"
-          export DATABASE_URL=$(echo $DATABASE_URL | sed 's|^postgres://|postgresql://|' | sed 's|^postgresql+asyncpg://|postgresql://|')
-          echo "Fixed prefix: $(echo $DATABASE_URL | cut -c1-20)"
+          python -c "
+          import os, sys
+          url = os.environ.get('DATABASE_URL', '').strip()
+          print(f'Length: {len(url)}')
+          print(f'Scheme: {url.split(\"://\")[0] if \"://\" in url else \"NO SCHEME FOUND\"}')
+          print(f'Has @: {\"@\" in url}')
+          print(f'Has /: {url.count(\"/\")} slashes')
+          sys.exit(0 if url else 1)
+          "
           alembic upgrade head
 
       - name: Deploy to Azure App Service

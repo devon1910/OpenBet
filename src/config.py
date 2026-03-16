@@ -1,10 +1,24 @@
+import os
+
 from pydantic_settings import BaseSettings
+
+
+def _fix_db_url(url: str, async_driver: bool = False) -> str:
+    """Supabase/Heroku give postgres:// — SQLAlchemy needs postgresql://."""
+    url = url.replace("postgres://", "postgresql://", 1)
+    if async_driver and "postgresql+asyncpg://" not in url:
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return url
 
 
 class Settings(BaseSettings):
     # Database
     database_url: str = "postgresql+asyncpg://openbet:openbet@localhost:5433/openbet"
     database_url_sync: str = "postgresql://openbet:openbet@localhost:5433/openbet"
+
+    def model_post_init(self, __context) -> None:
+        object.__setattr__(self, "database_url", _fix_db_url(self.database_url, async_driver=True))
+        object.__setattr__(self, "database_url_sync", _fix_db_url(self.database_url_sync))
 
     # Redis
     redis_url: str = "redis://localhost:6380/0"

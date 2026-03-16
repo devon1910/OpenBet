@@ -25,7 +25,9 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          export DATABASE_URL=$(echo $DATABASE_URL | sed 's|^postgres://|postgresql://|')
+          echo "Raw prefix: $(echo $DATABASE_URL | cut -c1-20)"
+          export DATABASE_URL=$(echo $DATABASE_URL | sed 's|^postgres://|postgresql://|' | sed 's|^postgresql+asyncpg://|postgresql://|')
+          echo "Fixed prefix: $(echo $DATABASE_URL | cut -c1-20)"
           alembic upgrade head
 
       - name: Deploy to Azure App Service

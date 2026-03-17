@@ -725,6 +725,11 @@
     </footer>
 
     <script>
+        // Admin/auth calls go directly to Azure to avoid Vercel's 30s timeout
+        const API_BASE = window.location.hostname.includes('vercel.app')
+            ? 'https://openbet-e3agfzhsesaqaphw.canadacentral-01.azurewebsites.net'
+            : '';
+
         const dateInput = document.getElementById('matchDate');
         dateInput.value = new Date().toISOString().split('T')[0];
 
@@ -797,7 +802,7 @@
             btn.textContent = 'Signing in...';
 
             try {
-                const res = await fetch('/auth/login', {
+                const res = await fetch(`${API_BASE}/auth/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password }),
@@ -901,7 +906,7 @@
             grid.innerHTML = '<div class="message"><div class="spinner"></div>Generating predictions...</div>';
 
             try {
-                const url = force ? `/picks/date/${date}?force=true` : `/picks/date/${date}`;
+                const url = force ? `${API_BASE}/picks/date/${date}?force=true` : `${API_BASE}/picks/date/${date}`;
                 const res = await fetch(url);
                 const data = await res.json();
 
@@ -950,7 +955,7 @@
         async function loadStatus() {
             const el = document.getElementById('adminStats');
             try {
-                const res = await fetch('/admin/status', { headers: authHeaders() });
+                const res = await fetch(`${API_BASE}/admin/status`, { headers: authHeaders() });
                 if (res.status === 401) { clearToken(); return; }
                 const d = await res.json();
                 el.innerHTML = `
@@ -974,7 +979,7 @@
             log.textContent += `> ${action}...\n`;
 
             try {
-                const res = await fetch(`/admin/${action}`, { method: 'POST', headers: authHeaders() });
+                const res = await fetch(`${API_BASE}/admin/${action}`, { method: 'POST', headers: authHeaders() });
                 if (res.status === 401) {
                     clearToken();
                     log.textContent += 'Session expired. Please log in again.\n';
@@ -1014,7 +1019,7 @@
             log.textContent += '> backtest (last 8 weeks)...\n';
 
             try {
-                const res = await fetch('/admin/backtest', { method: 'POST', headers: authHeaders() });
+                const res = await fetch(`${API_BASE}/admin/backtest`, { method: 'POST', headers: authHeaders() });
                 if (res.status === 401) { clearToken(); openLoginModal(); return; }
                 const d = await res.json();
                 log.textContent += `${d.message || JSON.stringify(d)}\n`;
@@ -1068,7 +1073,7 @@
         async function loadPipelineStatus() {
             const el = document.getElementById('pipelineItems');
             try {
-                const res = await fetch('/pipeline-status');
+                const res = await fetch(`${API_BASE}/pipeline-status`);
                 if (!res.ok) return;
                 const d = await res.json();
 

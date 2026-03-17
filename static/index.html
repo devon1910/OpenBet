@@ -728,22 +728,30 @@
         const dateInput = document.getElementById('matchDate');
         dateInput.value = new Date().toISOString().split('T')[0];
 
-        // ── Auth state (in-memory only, never persisted to localStorage) ──
-        let _token = null;
+        // ── Auth state (persisted to sessionStorage) ──
+        let _token = sessionStorage.getItem('admin_token');
 
         function isAuthed() { return !!_token; }
 
         function setToken(t) {
             _token = t;
+            sessionStorage.setItem('admin_token', t);
             document.getElementById('adminBtn').classList.toggle('authed', true);
             document.getElementById('adminBtn').textContent = 'Admin ✓';
         }
 
         function clearToken() {
             _token = null;
+            sessionStorage.removeItem('admin_token');
             document.getElementById('adminBtn').classList.remove('authed');
             document.getElementById('adminBtn').textContent = 'Admin';
             document.getElementById('adminPanel').classList.remove('open');
+        }
+
+        // Restore admin UI state on page load
+        if (_token) {
+            document.getElementById('adminBtn').classList.toggle('authed', true);
+            document.getElementById('adminBtn').textContent = 'Admin ✓';
         }
 
         function authHeaders() {

@@ -3,155 +3,219 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OpenBet - Football Predictions</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>OpenBet — AI Football Predictions</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0e1117;
-            --surface: #161b22;
-            --surface-raised: #1c2129;
-            --border: rgba(255,255,255,0.08);
-            --accent: #58a6ff;
-            --green: #3fb950;
-            --yellow: #d29922;
-            --red: #f85149;
-            --text: #e6edf3;
-            --text-secondary: #8b949e;
-            --text-faint: #484f58;
+            --bg: #050608;
+            --bg-gradient: linear-gradient(135deg, #050608 0%, #0a0f18 50%, #0d1117 100%);
+            --surface: rgba(255,255,255,0.03);
+            --surface-hover: rgba(255,255,255,0.06);
+            --surface-raised: rgba(255,255,255,0.05);
+            --glass: rgba(255,255,255,0.04);
+            --glass-border: rgba(255,255,255,0.08);
+            --border: rgba(255,255,255,0.06);
+            --border-hover: rgba(255,255,255,0.12);
+            --accent: #4f8fff;
+            --accent-glow: rgba(79,143,255,0.15);
+            --accent-soft: rgba(79,143,255,0.08);
+            --green: #22c55e;
+            --green-soft: rgba(34,197,94,0.1);
+            --yellow: #eab308;
+            --yellow-soft: rgba(234,179,8,0.1);
+            --red: #ef4444;
+            --red-soft: rgba(239,68,68,0.1);
+            --orange: #f97316;
+            --text: #f0f2f5;
+            --text-secondary: #7c8494;
+            --text-faint: #3d4452;
+            --radius: 14px;
+            --radius-sm: 8px;
+            --radius-xs: 6px;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             background: var(--bg);
+            background-image: var(--bg-gradient);
             color: var(--text);
-            font-family: 'Inter', -apple-system, sans-serif;
-            line-height: 1.5;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* --- HEADER --- */
+        /* Subtle grid pattern overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                radial-gradient(circle at 25% 25%, rgba(79,143,255,0.03) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(34,197,94,0.02) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .app { position: relative; z-index: 1; }
+
+        /* ═══════════════════ HEADER ═══════════════════ */
         .header {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            background: rgba(5,6,8,0.8);
             border-bottom: 1px solid var(--border);
-            padding: 16px 24px;
         }
 
         .header-inner {
-            max-width: 900px;
+            max-width: 1100px;
             margin: 0 auto;
+            padding: 14px 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             gap: 16px;
-            flex-wrap: wrap;
         }
 
-        .logo {
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--accent), #7c3aed);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 14px;
+            color: white;
+            letter-spacing: -0.5px;
+        }
+
+        .brand-text h1 {
+            font-size: 17px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            line-height: 1.2;
+        }
+
+        .brand-text span {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        .nav-controls {
             display: flex;
             align-items: center;
             gap: 10px;
-        }
-
-        .logo-mark {
-            background: var(--accent);
-            color: var(--bg);
-            font-weight: 700;
-            font-size: 13px;
-            padding: 4px 8px;
-            border-radius: 6px;
-        }
-
-        .logo-name {
-            font-size: 16px;
-            font-weight: 600;
-        }
-
-        .logo-sub {
-            font-size: 12px;
-            color: var(--text-secondary);
-            margin-left: 8px;
-        }
-
-        .controls {
-            display: flex;
-            align-items: center;
-            gap: 8px;
         }
 
         input[type="date"] {
             background: var(--surface);
             border: 1px solid var(--border);
             color: var(--text);
-            padding: 7px 12px;
-            border-radius: 6px;
+            padding: 8px 14px;
+            border-radius: var(--radius-sm);
             font-family: inherit;
             font-size: 13px;
+            font-weight: 500;
             outline: none;
+            transition: all 0.2s;
         }
 
-        input[type="date"]:focus { border-color: var(--accent); }
-        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.8); cursor: pointer; }
+        input[type="date"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); cursor: pointer; }
 
         .btn {
-            padding: 7px 14px;
-            border-radius: 6px;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
             font-family: inherit;
             font-size: 13px;
             font-weight: 500;
             cursor: pointer;
             border: 1px solid var(--border);
-            transition: all 0.15s;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
         }
 
         .btn-primary {
             background: var(--accent);
-            color: var(--bg);
+            color: white;
             border-color: var(--accent);
+            box-shadow: 0 2px 8px rgba(79,143,255,0.25);
         }
 
-        .btn-primary:hover { opacity: 0.9; }
+        .btn-primary:hover { box-shadow: 0 4px 16px rgba(79,143,255,0.35); transform: translateY(-1px); }
 
         .btn-ghost {
             background: transparent;
             color: var(--text-secondary);
         }
 
-        .btn-ghost:hover { color: var(--text); border-color: var(--text-secondary); }
+        .btn-ghost:hover { color: var(--text); border-color: var(--border-hover); background: var(--surface); }
 
-        /* --- STATUS --- */
-        .status-bar {
-            max-width: 900px;
-            margin: 20px auto 0;
+        .btn-admin {
+            background: transparent;
+            color: var(--text-faint);
+            border: 1px solid transparent;
+            font-size: 12px;
+            padding: 6px 12px;
+        }
+
+        .btn-admin:hover { color: var(--text-secondary); border-color: var(--border); }
+        .btn-admin.authed { color: var(--accent); border-color: rgba(79,143,255,0.3); background: var(--accent-soft); }
+
+        /* ═══════════════════ DATE BAR ═══════════════════ */
+        .date-bar {
+            max-width: 1100px;
+            margin: 24px auto 0;
             padding: 0 24px;
             display: none;
-            justify-content: space-between;
             align-items: center;
+            justify-content: space-between;
         }
 
-        .status-bar.active { display: flex; }
+        .date-bar.active { display: flex; }
 
-        .status-title {
-            font-size: 14px;
-            color: var(--text-secondary);
+        .date-title {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
         }
 
-        .status-count {
+        .picks-count {
             font-size: 12px;
+            font-weight: 600;
             color: var(--accent);
-            background: rgba(88,166,255,0.1);
-            padding: 2px 10px;
-            border-radius: 10px;
+            background: var(--accent-soft);
+            border: 1px solid rgba(79,143,255,0.15);
+            padding: 4px 12px;
+            border-radius: 20px;
         }
 
-        /* --- CONTENT --- */
+        /* ═══════════════════ CONTENT ═══════════════════ */
         .content {
-            max-width: 900px;
+            max-width: 1100px;
             margin: 0 auto;
-            padding: 16px 24px 60px;
+            padding: 20px 24px 80px;
         }
 
         .message {
             text-align: center;
-            padding: 60px 20px;
+            padding: 80px 20px;
             color: var(--text-secondary);
             font-size: 14px;
         }
@@ -159,109 +223,161 @@
         .message.error { color: var(--red); }
 
         .spinner {
-            width: 24px;
-            height: 24px;
+            width: 28px;
+            height: 28px;
             border: 2px solid var(--border);
             border-top-color: var(--accent);
             border-radius: 50%;
-            animation: spin 0.6s linear infinite;
-            margin: 0 auto 12px;
+            animation: spin 0.7s linear infinite;
+            margin: 0 auto 16px;
         }
 
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* --- PICK CARDS --- */
-        .picks-list { display: flex; flex-direction: column; gap: 12px; }
-
-        .pick-card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 20px;
-            transition: border-color 0.15s;
+        /* ═══════════════════ PICKS GRID ═══════════════════ */
+        .picks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
+            gap: 16px;
         }
 
-        .pick-card:hover { border-color: rgba(255,255,255,0.15); }
+        .pick-card {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            padding: 22px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
 
-        .card-top {
+        .pick-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(79,143,255,0.3), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .pick-card:hover {
+            border-color: var(--border-hover);
+            background: var(--surface-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+
+        .pick-card:hover::before { opacity: 1; }
+
+        .card-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 14px;
+            margin-bottom: 18px;
         }
 
-        .league {
-            font-size: 11px;
-            color: var(--text-secondary);
+        .league-badge {
+            font-size: 10px;
+            font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-weight: 500;
+            letter-spacing: 0.8px;
+            color: var(--text-secondary);
+            background: var(--surface-raised);
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
         }
 
         .kickoff {
-            font-size: 12px;
-            color: var(--text-faint);
-        }
-
-        /* Teams row */
-        .teams {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 14px;
-            margin-bottom: 16px;
-        }
-
-        .team-name {
-            font-size: 15px;
-            font-weight: 600;
-            flex: 1;
-        }
-
-        .team-name.home { text-align: right; }
-        .team-name.away { text-align: left; }
-
-        .vs {
             font-size: 11px;
             color: var(--text-faint);
-            font-weight: 600;
-            padding: 3px 8px;
-            border: 1px solid var(--border);
-            border-radius: 4px;
-        }
-
-        /* Probability bar */
-        .prob-row {
-            margin-bottom: 14px;
-        }
-
-        .prob-labels {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 5px;
-            font-size: 11px;
             font-weight: 500;
         }
 
-        .prob-labels .lbl-home { color: var(--accent); }
-        .prob-labels .lbl-draw { color: var(--yellow); }
-        .prob-labels .lbl-away { color: var(--red); }
-
-        .prob-bar {
+        /* Teams */
+        .matchup {
             display: flex;
-            height: 6px;
-            border-radius: 3px;
-            overflow: hidden;
-            background: rgba(255,255,255,0.04);
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 20px;
         }
 
-        .prob-seg { transition: width 0.5s ease; }
-        .prob-seg.home { background: var(--accent); }
-        .prob-seg.draw { background: var(--yellow); }
-        .prob-seg.away { background: var(--red); }
+        .team {
+            flex: 1;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: -0.2px;
+        }
 
-        /* Tip section */
-        .tip-row {
+        .team.home { text-align: right; }
+        .team.away { text-align: left; }
+
+        .vs-divider {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text-faint);
+            padding: 5px 10px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xs);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        /* Probability visualization */
+        .prob-section { margin-bottom: 18px; }
+
+        .prob-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .prob-label {
+            font-size: 11px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .prob-label .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .prob-label.home .dot { background: var(--accent); }
+        .prob-label.draw .dot { background: var(--yellow); }
+        .prob-label.away .dot { background: var(--red); }
+        .prob-label.home { color: var(--accent); }
+        .prob-label.draw { color: var(--yellow); }
+        .prob-label.away { color: var(--red); }
+
+        .prob-track {
+            display: flex;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            background: rgba(255,255,255,0.03);
+            gap: 2px;
+        }
+
+        .prob-fill {
+            border-radius: 4px;
+            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .prob-fill.home { background: linear-gradient(90deg, var(--accent), #7c9dff); }
+        .prob-fill.draw { background: linear-gradient(90deg, var(--yellow), #fcd34d); }
+        .prob-fill.away { background: linear-gradient(90deg, var(--red), #fca5a5); }
+
+        /* Pick result */
+        .pick-result {
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -269,361 +385,189 @@
             flex-wrap: wrap;
         }
 
-        .tip {
+        .pick-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .market-tag {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 5px 10px;
+            border-radius: var(--radius-xs);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .market-tag.win {
+            background: var(--green-soft);
+            color: var(--green);
+            border: 1px solid rgba(34,197,94,0.2);
+        }
+
+        .market-tag.dc {
+            background: var(--accent-soft);
+            color: var(--accent);
+            border: 1px solid rgba(79,143,255,0.2);
+        }
+
+        .pick-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .confidence-meter {
             display: flex;
             align-items: center;
             gap: 8px;
         }
 
-        .tip-badge {
-            font-size: 12px;
-            font-weight: 600;
-            padding: 4px 10px;
-            border-radius: 4px;
+        .conf-ring {
+            width: 32px;
+            height: 32px;
+            position: relative;
         }
 
-        .tip-badge.win {
-            background: rgba(63,185,80,0.12);
-            color: var(--green);
-            border: 1px solid rgba(63,185,80,0.25);
-        }
-
-        .tip-badge.dc {
-            background: rgba(88,166,255,0.12);
-            color: var(--accent);
-            border: 1px solid rgba(88,166,255,0.25);
-        }
-
-        .tip-pick {
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--text);
-        }
-
-        .confidence {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            color: var(--text-secondary);
-        }
-
-        .conf-bar-bg {
-            width: 50px;
-            height: 4px;
-            background: rgba(255,255,255,0.06);
-            border-radius: 2px;
-            overflow: hidden;
-        }
-
-        .conf-bar-fill {
+        .conf-ring svg {
+            width: 100%;
             height: 100%;
-            border-radius: 2px;
-            background: var(--green);
+            transform: rotate(-90deg);
         }
 
-        .conf-bar-fill.mid { background: var(--yellow); }
+        .conf-ring .track {
+            fill: none;
+            stroke: rgba(255,255,255,0.05);
+            stroke-width: 3;
+        }
 
+        .conf-ring .fill {
+            fill: none;
+            stroke-width: 3;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .conf-ring .fill.high { stroke: var(--green); }
+        .conf-ring .fill.mid { stroke: var(--yellow); }
+        .conf-ring .fill.low { stroke: var(--orange); }
+
+        .conf-value {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-secondary);
+        }
+
+        /* Reasoning */
         .reasoning {
-            margin-top: 12px;
-            padding: 10px 12px;
-            background: rgba(255,255,255,0.02);
-            border-left: 2px solid var(--accent);
-            border-radius: 0 4px 4px 0;
+            margin-top: 14px;
+            padding: 12px 14px;
+            background: rgba(79,143,255,0.03);
+            border-left: 2px solid rgba(79,143,255,0.3);
+            border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
             font-size: 12px;
             color: var(--text-secondary);
-            line-height: 1.5;
+            line-height: 1.7;
         }
 
         .reasoning strong {
             color: var(--text);
-            font-weight: 500;
-        }
-
-        /* --- ADMIN PANEL --- */
-        .admin-toggle {
-            max-width: 900px;
-            margin: 12px auto 0;
-            padding: 0 24px;
-            text-align: right;
-        }
-
-        .admin-toggle button {
-            background: none;
-            border: none;
-            color: var(--text-faint);
-            font-size: 11px;
-            cursor: pointer;
-            font-family: inherit;
-        }
-
-        .admin-toggle button:hover { color: var(--text-secondary); }
-
-        .admin-panel {
-            max-width: 900px;
-            margin: 8px auto 0;
-            padding: 0 24px;
-            display: none;
-        }
-
-        .admin-panel.open { display: block; }
-
-        .admin-inner {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 16px 20px;
-        }
-
-        .admin-title {
-            font-size: 12px;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 12px;
             font-weight: 600;
         }
 
-        .admin-actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-bottom: 12px;
-        }
-
-        .admin-btn {
-            padding: 8px 14px;
-            border-radius: 6px;
-            font-family: inherit;
-            font-size: 12px;
-            font-weight: 500;
-            cursor: pointer;
-            border: 1px solid var(--border);
-            background: var(--surface-raised);
-            color: var(--text);
-            transition: all 0.15s;
-        }
-
-        .admin-btn:hover { border-color: var(--accent); color: var(--accent); }
-        .admin-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .admin-btn.running { border-color: var(--yellow); color: var(--yellow); }
-
-        .admin-log {
-            font-size: 11px;
-            color: var(--text-secondary);
-            background: rgba(0,0,0,0.3);
-            border-radius: 6px;
-            padding: 10px 12px;
-            max-height: 120px;
-            overflow-y: auto;
-            display: none;
-            white-space: pre-wrap;
-            font-family: 'Courier New', monospace;
-        }
-
-        .admin-log.active { display: block; }
-
-        .backtest-results {
-            display: none;
-            margin-top: 12px;
-            background: rgba(0,0,0,0.25);
-            border-radius: 8px;
-            padding: 14px;
-        }
-        .backtest-header {
+        /* Edge / Value badge */
+        .edge-badge {
+            font-size: 10px;
             font-weight: 600;
-            color: var(--accent);
-            margin-bottom: 10px;
-            font-size: 13px;
-        }
-        .backtest-stats, .backtest-breakdown {
-            display: flex;
-            gap: 14px;
-            flex-wrap: wrap;
-            margin-bottom: 8px;
-            font-size: 12px;
-        }
-        .backtest-stat {
-            color: var(--text-secondary);
-        }
-        .backtest-stat strong { color: var(--text-primary); }
-        .backtest-days { margin-top: 10px; font-size: 12px; }
-        .backtest-day-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 6px;
-            margin-top: 6px;
-        }
-        .backtest-day {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            background: rgba(255,255,255,0.05);
-        }
-        .backtest-day.perfect { background: rgba(34,197,94,0.2); border-left: 3px solid #22c55e; }
-        .backtest-day.good { background: rgba(59,130,246,0.15); border-left: 3px solid #3b82f6; }
-        .backtest-day.poor { background: rgba(239,68,68,0.15); border-left: 3px solid #ef4444; }
-        .day-date { color: var(--text-secondary); }
-        .day-score { font-weight: 600; }
-        .day-profit { color: var(--text-secondary); }
-
-        .admin-stats {
-            display: flex;
-            gap: 16px;
-            flex-wrap: wrap;
-            margin-bottom: 12px;
+            padding: 3px 8px;
+            border-radius: 20px;
+            margin-left: 6px;
         }
 
-        .admin-stat {
-            font-size: 11px;
-            color: var(--text-secondary);
-        }
+        .edge-badge.positive { background: var(--green-soft); color: var(--green); }
+        .edge-badge.neutral { background: var(--yellow-soft); color: var(--yellow); }
 
-        .admin-stat strong {
-            color: var(--text);
-            font-weight: 600;
-        }
-
-        @media (max-width: 600px) {
-            .header-inner { flex-direction: column; align-items: flex-start; }
-            .teams { flex-direction: column; gap: 4px; }
-            .team-name { text-align: center !important; }
-            .tip-row { flex-direction: column; align-items: flex-start; }
-            .admin-actions { flex-direction: column; }
-        }
-
-        /* --- PIPELINE STATUS FOOTER --- */
-        .pipeline-footer {
-            border-top: 1px solid var(--border);
-            margin-top: 40px;
-            padding: 12px 24px;
-        }
-
-        .pipeline-footer-inner {
-            max-width: 900px;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-
-        .pipeline-label {
-            font-size: 11px;
-            color: var(--text-faint);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-weight: 500;
-            flex-shrink: 0;
-        }
-
-        .pipeline-items {
-            display: flex;
-            gap: 16px;
-            flex-wrap: wrap;
-            flex: 1;
-        }
-
-        .pipeline-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 11px;
-            color: var(--text-secondary);
-        }
-
-        .pipeline-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: var(--text-faint);
-            flex-shrink: 0;
-        }
-
-        .pipeline-dot.ok      { background: var(--green); box-shadow: 0 0 4px var(--green); }
-        .pipeline-dot.error   { background: var(--red); }
-        .pipeline-dot.running { background: var(--yellow); animation: pulse 1s infinite; }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50%       { opacity: 0.3; }
-        }
-
-        /* --- LOGIN MODAL --- */
+        /* ═══════════════════ LOGIN MODAL ═══════════════════ */
         .modal-overlay {
             display: none;
             position: fixed;
             inset: 0;
-            background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(4px);
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
             z-index: 100;
             align-items: center;
             justify-content: center;
         }
+
         .modal-overlay.open { display: flex; }
 
         .modal {
-            background: var(--surface);
+            background: #0d1117;
             border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 32px;
+            border-radius: var(--radius);
+            padding: 36px;
             width: 100%;
-            max-width: 360px;
+            max-width: 380px;
             margin: 16px;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.5);
         }
 
         .modal-title {
-            font-size: 16px;
-            font-weight: 600;
+            font-size: 18px;
+            font-weight: 700;
             margin-bottom: 4px;
         }
 
         .modal-sub {
-            font-size: 12px;
+            font-size: 13px;
             color: var(--text-secondary);
-            margin-bottom: 24px;
+            margin-bottom: 28px;
         }
 
-        .form-group {
-            margin-bottom: 14px;
-        }
+        .form-group { margin-bottom: 16px; }
 
         .form-group label {
             display: block;
             font-size: 12px;
-            font-weight: 500;
+            font-weight: 600;
             color: var(--text-secondary);
             margin-bottom: 6px;
         }
 
         .form-group input {
             width: 100%;
-            background: var(--surface-raised);
+            background: var(--surface);
             border: 1px solid var(--border);
             color: var(--text);
-            padding: 9px 12px;
-            border-radius: 6px;
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
             font-family: inherit;
             font-size: 13px;
             outline: none;
-            transition: border-color 0.15s;
+            transition: all 0.2s;
         }
 
-        .form-group input:focus { border-color: var(--accent); }
+        .form-group input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-soft);
+        }
 
         .login-error {
             font-size: 12px;
             color: var(--red);
             margin-bottom: 12px;
             display: none;
+            background: var(--red-soft);
+            padding: 8px 12px;
+            border-radius: var(--radius-xs);
         }
 
         .modal-actions {
             display: flex;
-            gap: 8px;
-            margin-top: 20px;
+            gap: 10px;
+            margin-top: 24px;
         }
 
         .btn-cancel {
@@ -632,29 +576,260 @@
             border: 1px solid var(--border);
         }
 
-        .btn-cancel:hover { color: var(--text); }
+        .btn-cancel:hover { color: var(--text); border-color: var(--border-hover); }
 
-        /* Admin header button */
-        .btn-admin {
-            background: transparent;
-            color: var(--text-faint);
-            border: 1px solid transparent;
+        /* ═══════════════════ ADMIN PANEL ═══════════════════ */
+        .admin-panel {
+            max-width: 1100px;
+            margin: 16px auto 0;
+            padding: 0 24px;
+            display: none;
+        }
+
+        .admin-panel.open { display: block; }
+
+        .admin-inner {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+        }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .admin-title {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-secondary);
+        }
+
+        .btn-logout {
+            font-size: 11px;
+            padding: 4px 12px;
+            color: var(--red);
+            border-color: rgba(239,68,68,0.2);
+            background: var(--red-soft);
+        }
+
+        .btn-logout:hover { border-color: var(--red); }
+
+        .admin-stats {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .stat-chip {
+            font-size: 12px;
+            color: var(--text-secondary);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 6px 12px;
+            border-radius: 20px;
+        }
+
+        .stat-chip strong {
+            color: var(--text);
+            font-weight: 700;
+        }
+
+        .admin-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+
+        .admin-btn {
+            padding: 9px 16px;
+            border-radius: var(--radius-sm);
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+            transition: all 0.2s;
+        }
+
+        .admin-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+        .admin-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .admin-btn.running { border-color: var(--yellow); color: var(--yellow); background: var(--yellow-soft); animation: pulse 1.5s infinite; }
+
+        .admin-log {
+            font-size: 11px;
+            color: var(--text-secondary);
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px 14px;
+            max-height: 160px;
+            overflow-y: auto;
+            display: none;
+            white-space: pre-wrap;
+            font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+            line-height: 1.7;
+        }
+
+        .admin-log.active { display: block; }
+
+        /* Backtest results */
+        .backtest-results {
+            display: none;
+            margin-top: 14px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px;
+        }
+
+        .backtest-header {
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        .backtest-stats, .backtest-breakdown {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
             font-size: 12px;
         }
 
-        .btn-admin:hover { color: var(--text-secondary); border-color: var(--border); }
-        .btn-admin.authed { color: var(--accent); border-color: rgba(88,166,255,0.25); }
+        .backtest-stat { color: var(--text-secondary); }
+        .backtest-stat strong { color: var(--text); }
+        .backtest-days { margin-top: 12px; font-size: 12px; }
+
+        .backtest-day-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .backtest-day {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 10px;
+            border-radius: var(--radius-xs);
+            font-size: 11px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+        }
+
+        .backtest-day.perfect { background: rgba(34,197,94,0.1); border-color: rgba(34,197,94,0.2); }
+        .backtest-day.good { background: rgba(79,143,255,0.08); border-color: rgba(79,143,255,0.15); }
+        .backtest-day.poor { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.15); }
+        .day-date { color: var(--text-secondary); }
+        .day-score { font-weight: 700; }
+        .day-profit { color: var(--text-secondary); }
+
+        /* ═══════════════════ PIPELINE FOOTER ═══════════════════ */
+        .pipeline-footer {
+            border-top: 1px solid var(--border);
+            margin-top: 48px;
+            padding: 16px 24px;
+            background: rgba(5,6,8,0.6);
+        }
+
+        .pipeline-footer-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .pipeline-label {
+            font-size: 10px;
+            color: var(--text-faint);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .pipeline-items {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            flex: 1;
+        }
+
+        .pipeline-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .pipeline-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--text-faint);
+            flex-shrink: 0;
+        }
+
+        .pipeline-dot.ok      { background: var(--green); box-shadow: 0 0 6px var(--green); }
+        .pipeline-dot.error   { background: var(--red); box-shadow: 0 0 6px var(--red); }
+        .pipeline-dot.running { background: var(--yellow); animation: pulse 1s infinite; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%      { opacity: 0.3; }
+        }
+
+        /* ═══════════════════ RESPONSIVE ═══════════════════ */
+        @media (max-width: 768px) {
+            .header-inner { flex-direction: column; align-items: stretch; gap: 12px; }
+            .nav-controls { flex-wrap: wrap; }
+            .picks-grid { grid-template-columns: 1fr; }
+            .matchup { flex-direction: column; gap: 6px; }
+            .team { text-align: center !important; }
+            .pick-result { flex-direction: column; align-items: flex-start; }
+            .admin-actions { flex-direction: column; }
+            .date-title { font-size: 18px; }
+            .date-bar { flex-direction: column; align-items: flex-start; gap: 8px; }
+        }
+
+        @media (max-width: 520px) {
+            .picks-grid { grid-template-columns: 1fr; }
+            .pick-card { padding: 16px; }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--text-faint); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
     </style>
 </head>
 <body>
+<div class="app">
     <header class="header">
         <div class="header-inner">
-            <div class="logo">
-                <span class="logo-mark">OB</span>
-                <span class="logo-name">OpenBet</span>
-                <span class="logo-sub">Match Predictions</span>
+            <div class="brand">
+                <div class="brand-icon">OB</div>
+                <div class="brand-text">
+                    <h1>OpenBet</h1>
+                    <span>AI-Powered Match Predictions</span>
+                </div>
             </div>
-            <div class="controls">
+            <div class="nav-controls">
                 <input type="date" id="matchDate">
                 <button class="btn btn-primary" onclick="fetchPicks()">Get Tips</button>
                 <button class="btn btn-ghost" onclick="fetchPicks(true)">Regenerate</button>
@@ -663,38 +838,38 @@
         </div>
     </header>
 
-    <div class="status-bar" id="statusBar">
-        <span class="status-title" id="statusTitle"></span>
-        <span class="status-count" id="statusCount"></span>
+    <div class="date-bar" id="statusBar">
+        <span class="date-title" id="statusTitle"></span>
+        <span class="picks-count" id="statusCount"></span>
     </div>
 
     <!-- Login Modal -->
     <div class="modal-overlay" id="loginModal" onclick="handleOverlayClick(event)">
         <div class="modal">
             <div class="modal-title">Admin Login</div>
-            <div class="modal-sub">Enter your credentials to access the control panel.</div>
+            <div class="modal-sub">Enter credentials to access the control panel.</div>
             <div class="form-group">
                 <label for="loginUser">Username</label>
                 <input type="text" id="loginUser" autocomplete="username" placeholder="admin">
             </div>
             <div class="form-group">
                 <label for="loginPass">Password</label>
-                <input type="password" id="loginPass" autocomplete="current-password" placeholder="••••••••"
+                <input type="password" id="loginPass" autocomplete="current-password" placeholder="Enter password"
                     onkeydown="if(event.key==='Enter') submitLogin()">
             </div>
             <div class="login-error" id="loginError"></div>
             <div class="modal-actions">
-                <button class="btn btn-primary" style="flex:1" onclick="submitLogin()" id="loginSubmitBtn">Sign in</button>
-                <button class="btn btn-cancel btn-admin" onclick="closeLoginModal()">Cancel</button>
+                <button class="btn btn-primary" style="flex:1" onclick="submitLogin()" id="loginSubmitBtn">Sign In</button>
+                <button class="btn btn-cancel" onclick="closeLoginModal()">Cancel</button>
             </div>
         </div>
     </div>
 
     <div class="admin-panel" id="adminPanel">
         <div class="admin-inner">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                <div class="admin-title" style="margin-bottom:0">Data Pipeline</div>
-                <button class="admin-btn" style="font-size:11px;padding:4px 10px;color:var(--red);border-color:rgba(248,81,73,0.3)" onclick="clearToken()">Logout</button>
+            <div class="admin-header">
+                <div class="admin-title">Data Pipeline</div>
+                <button class="btn btn-logout" onclick="clearToken()">Logout</button>
             </div>
             <div class="admin-stats" id="adminStats"></div>
             <div class="admin-actions">
@@ -704,7 +879,7 @@
                 <button class="admin-btn" onclick="runAdmin('train', this)">Train Model</button>
                 <button class="admin-btn" onclick="runAdmin('resolve-outcomes', this)">Resolve Outcomes</button>
                 <button class="admin-btn" onclick="runBacktest(this)">Run Backtest</button>
-                <button class="admin-btn" onclick="loadStatus()">Refresh Status</button>
+                <button class="admin-btn" onclick="loadStatus()">Refresh</button>
             </div>
             <div class="admin-log" id="adminLog"></div>
             <div class="backtest-results" id="backtestResults"></div>
@@ -717,404 +892,441 @@
 
     <footer class="pipeline-footer">
         <div class="pipeline-footer-inner">
-            <span class="pipeline-label">Engine</span>
+            <span class="pipeline-label">Engine Status</span>
             <div class="pipeline-items" id="pipelineItems">
-                <span class="pipeline-item"><span class="pipeline-dot"></span>Loading…</span>
+                <span class="pipeline-item"><span class="pipeline-dot"></span>Loading...</span>
             </div>
         </div>
     </footer>
+</div>
 
-    <script>
-        // Admin/auth calls go directly to Azure to avoid Vercel's 30s timeout
-        const API_BASE = window.location.hostname.includes('vercel.app')
-            ? 'https://openbet-e3agfzhsesaqaphw.canadacentral-01.azurewebsites.net'
+<script>
+    // ═══════ CONFIG ═══════
+    const API_BASE = window.location.hostname.includes('vercel.app')
+        ? 'https://openbet-e3agfzhsesaqaphw.canadacentral-01.azurewebsites.net'
+        : '';
+
+    const dateInput = document.getElementById('matchDate');
+    dateInput.value = new Date().toISOString().split('T')[0];
+
+    // ═══════ AUTH ═══════
+    let _token = sessionStorage.getItem('admin_token');
+
+    function isAuthed() { return !!_token; }
+
+    function setToken(t) {
+        _token = t;
+        sessionStorage.setItem('admin_token', t);
+        document.getElementById('adminBtn').classList.add('authed');
+        document.getElementById('adminBtn').textContent = 'Admin \u2713';
+    }
+
+    function clearToken() {
+        _token = null;
+        sessionStorage.removeItem('admin_token');
+        document.getElementById('adminBtn').classList.remove('authed');
+        document.getElementById('adminBtn').textContent = 'Admin';
+        document.getElementById('adminPanel').classList.remove('open');
+    }
+
+    if (_token) {
+        document.getElementById('adminBtn').classList.add('authed');
+        document.getElementById('adminBtn').textContent = 'Admin \u2713';
+    }
+
+    function authHeaders() {
+        return _token ? { 'Authorization': `Bearer ${_token}` } : {};
+    }
+
+    function handleAdminBtn() {
+        if (isAuthed()) {
+            const panel = document.getElementById('adminPanel');
+            panel.classList.toggle('open');
+            if (panel.classList.contains('open')) loadStatus();
+        } else {
+            openLoginModal();
+        }
+    }
+
+    // ═══════ LOGIN MODAL ═══════
+    function openLoginModal() {
+        document.getElementById('loginUser').value = '';
+        document.getElementById('loginPass').value = '';
+        document.getElementById('loginError').style.display = 'none';
+        document.getElementById('loginModal').classList.add('open');
+        setTimeout(() => document.getElementById('loginUser').focus(), 50);
+    }
+
+    function closeLoginModal() {
+        document.getElementById('loginModal').classList.remove('open');
+    }
+
+    function handleOverlayClick(e) {
+        if (e.target === document.getElementById('loginModal')) closeLoginModal();
+    }
+
+    async function submitLogin() {
+        const btn = document.getElementById('loginSubmitBtn');
+        const errEl = document.getElementById('loginError');
+        const username = document.getElementById('loginUser').value.trim();
+        const password = document.getElementById('loginPass').value;
+
+        errEl.style.display = 'none';
+        btn.disabled = true;
+        btn.textContent = 'Signing in...';
+
+        try {
+            const res = await fetch(`${API_BASE}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password }),
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                errEl.textContent = data.detail || 'Invalid credentials.';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            setToken(data.access_token);
+            closeLoginModal();
+            document.getElementById('adminPanel').classList.add('open');
+            loadStatus();
+        } catch {
+            errEl.textContent = 'Server unreachable. Try again.';
+            errEl.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Sign In';
+        }
+    }
+
+    // ═══════ PICK CARDS ═══════
+    function formatPickLabel(pick) {
+        const v = pick.pick_value;
+        if (v === 'HOME') return pick.home_team + ' to Win';
+        if (v === 'AWAY') return pick.away_team + ' to Win';
+        if (v === '1X') return pick.home_team + ' Win or Draw';
+        if (v === 'X2') return pick.away_team + ' Win or Draw';
+        return v;
+    }
+
+    function formatMarket(pick) {
+        if (pick.pick_type === 'STRAIGHT_WIN') return '1X2';
+        if (pick.pick_type === 'DOUBLE_CHANCE') return 'DC';
+        return pick.pick_type;
+    }
+
+    function confRing(confidence) {
+        const pct = confidence * 100;
+        const r = 13;
+        const circ = 2 * Math.PI * r;
+        const offset = circ - (confidence * circ);
+        const cls = pct >= 65 ? 'high' : pct >= 50 ? 'mid' : 'low';
+        return `
+            <div class="confidence-meter">
+                <div class="conf-ring">
+                    <svg viewBox="0 0 32 32">
+                        <circle class="track" cx="16" cy="16" r="${r}"/>
+                        <circle class="fill ${cls}" cx="16" cy="16" r="${r}"
+                            stroke-dasharray="${circ}"
+                            stroke-dashoffset="${offset}"/>
+                    </svg>
+                </div>
+                <span class="conf-value">${pct.toFixed(0)}%</span>
+            </div>`;
+    }
+
+    function createPickCard(pick) {
+        const h = pick.probabilities?.home_win ?? 0;
+        const d = pick.probabilities?.draw ?? 0;
+        const a = pick.probabilities?.away_win ?? 0;
+        const hP = (h * 100).toFixed(1);
+        const dP = (d * 100).toFixed(1);
+        const aP = (a * 100).toFixed(1);
+        const isWin = pick.pick_type === 'STRAIGHT_WIN';
+        const badgeClass = isWin ? 'win' : 'dc';
+
+        const edgeHtml = pick.edge != null && pick.edge > 0
+            ? `<span class="edge-badge positive">+${(pick.edge * 100).toFixed(1)}% edge</span>`
             : '';
 
-        const dateInput = document.getElementById('matchDate');
-        dateInput.value = new Date().toISOString().split('T')[0];
-
-        // ── Auth state (persisted to sessionStorage) ──
-        let _token = sessionStorage.getItem('admin_token');
-
-        function isAuthed() { return !!_token; }
-
-        function setToken(t) {
-            _token = t;
-            sessionStorage.setItem('admin_token', t);
-            document.getElementById('adminBtn').classList.toggle('authed', true);
-            document.getElementById('adminBtn').textContent = 'Admin ✓';
-        }
-
-        function clearToken() {
-            _token = null;
-            sessionStorage.removeItem('admin_token');
-            document.getElementById('adminBtn').classList.remove('authed');
-            document.getElementById('adminBtn').textContent = 'Admin';
-            document.getElementById('adminPanel').classList.remove('open');
-        }
-
-        // Restore admin UI state on page load
-        if (_token) {
-            document.getElementById('adminBtn').classList.toggle('authed', true);
-            document.getElementById('adminBtn').textContent = 'Admin ✓';
-        }
-
-        function authHeaders() {
-            return _token ? { 'Authorization': `Bearer ${_token}` } : {};
-        }
-
-        // ── Admin button: toggle panel if authed, else open login modal ──
-        function handleAdminBtn() {
-            if (isAuthed()) {
-                const panel = document.getElementById('adminPanel');
-                panel.classList.toggle('open');
-                if (panel.classList.contains('open')) loadStatus();
-            } else {
-                openLoginModal();
-            }
-        }
-
-        // ── Login modal ──
-        function openLoginModal() {
-            document.getElementById('loginUser').value = '';
-            document.getElementById('loginPass').value = '';
-            document.getElementById('loginError').style.display = 'none';
-            document.getElementById('loginModal').classList.add('open');
-            setTimeout(() => document.getElementById('loginUser').focus(), 50);
-        }
-
-        function closeLoginModal() {
-            document.getElementById('loginModal').classList.remove('open');
-        }
-
-        function handleOverlayClick(e) {
-            if (e.target === document.getElementById('loginModal')) closeLoginModal();
-        }
-
-        async function submitLogin() {
-            const btn = document.getElementById('loginSubmitBtn');
-            const errEl = document.getElementById('loginError');
-            const username = document.getElementById('loginUser').value.trim();
-            const password = document.getElementById('loginPass').value;
-
-            errEl.style.display = 'none';
-            btn.disabled = true;
-            btn.textContent = 'Signing in...';
-
-            try {
-                const res = await fetch(`${API_BASE}/auth/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password }),
-                });
-                const data = await res.json();
-
-                if (!res.ok) {
-                    errEl.textContent = data.detail || 'Invalid credentials.';
-                    errEl.style.display = 'block';
-                    return;
-                }
-
-                setToken(data.access_token);
-                closeLoginModal();
-                // Open admin panel right after login
-                document.getElementById('adminPanel').classList.add('open');
-                loadStatus();
-            } catch {
-                errEl.textContent = 'Server unreachable. Try again.';
-                errEl.style.display = 'block';
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Sign in';
-            }
-        }
-
-        function formatPickLabel(pick) {
-            const v = pick.pick_value;
-            if (v === 'HOME') return pick.home_team + ' to Win';
-            if (v === 'AWAY') return pick.away_team + ' to Win';
-            if (v === '1X') return pick.home_team + ' Win or Draw';
-            if (v === 'X2') return pick.away_team + ' Win or Draw';
-            return v;
-        }
-
-        function formatMarket(pick) {
-            if (pick.pick_type === 'STRAIGHT_WIN') return '1X2';
-            if (pick.pick_type === 'DOUBLE_CHANCE') return 'Double Chance';
-            return pick.pick_type;
-        }
-
-        function createPickCard(pick) {
-            const h = pick.probabilities?.home_win ?? 0;
-            const d = pick.probabilities?.draw ?? 0;
-            const a = pick.probabilities?.away_win ?? 0;
-            const hP = (h * 100).toFixed(1);
-            const dP = (d * 100).toFixed(1);
-            const aP = (a * 100).toFixed(1);
-            const conf = (pick.confidence * 100).toFixed(0);
-            const isWin = pick.pick_type === 'STRAIGHT_WIN';
-            const badgeClass = isWin ? 'win' : 'dc';
-            const isHigh = pick.confidence >= 0.65;
-
-            return `
-                <div class="pick-card">
-                    <div class="card-top">
-                        <span class="league">${pick.competition || ''}</span>
-                        <span class="kickoff">${pick.kick_off || ''}</span>
-                    </div>
-                    <div class="teams">
-                        <span class="team-name home">${pick.home_team}</span>
-                        <span class="vs">vs</span>
-                        <span class="team-name away">${pick.away_team}</span>
-                    </div>
-                    <div class="prob-row">
-                        <div class="prob-labels">
-                            <span class="lbl-home">1 &middot; ${hP}%</span>
-                            <span class="lbl-draw">X &middot; ${dP}%</span>
-                            <span class="lbl-away">2 &middot; ${aP}%</span>
-                        </div>
-                        <div class="prob-bar">
-                            <div class="prob-seg home" style="width:${hP}%"></div>
-                            <div class="prob-seg draw" style="width:${dP}%"></div>
-                            <div class="prob-seg away" style="width:${aP}%"></div>
-                        </div>
-                    </div>
-                    <div class="tip-row">
-                        <div class="tip">
-                            <span class="tip-badge ${badgeClass}">${formatMarket(pick)}</span>
-                            <span class="tip-pick">${formatPickLabel(pick)}</span>
-                        </div>
-                        <div class="confidence">
-                            <div class="conf-bar-bg">
-                                <div class="conf-bar-fill ${isHigh ? '' : 'mid'}" style="width:${conf}%"></div>
-                            </div>
-                            <span>${conf}%</span>
-                        </div>
-                    </div>
-                    ${pick.reasoning ? `<div class="reasoning"><strong>Why:</strong> ${pick.reasoning}</div>` : ''}
+        return `
+            <div class="pick-card">
+                <div class="card-header">
+                    <span class="league-badge">${pick.competition || ''}</span>
+                    <span class="kickoff">${pick.kick_off || ''}</span>
                 </div>
+                <div class="matchup">
+                    <span class="team home">${pick.home_team}</span>
+                    <span class="vs-divider">vs</span>
+                    <span class="team away">${pick.away_team}</span>
+                </div>
+                <div class="prob-section">
+                    <div class="prob-header">
+                        <span class="prob-label home"><span class="dot"></span> ${hP}%</span>
+                        <span class="prob-label draw"><span class="dot"></span> ${dP}%</span>
+                        <span class="prob-label away"><span class="dot"></span> ${aP}%</span>
+                    </div>
+                    <div class="prob-track">
+                        <div class="prob-fill home" style="width:${hP}%"></div>
+                        <div class="prob-fill draw" style="width:${dP}%"></div>
+                        <div class="prob-fill away" style="width:${aP}%"></div>
+                    </div>
+                </div>
+                <div class="pick-result">
+                    <div class="pick-info">
+                        <span class="market-tag ${badgeClass}">${formatMarket(pick)}</span>
+                        <span class="pick-label">${formatPickLabel(pick)}</span>
+                        ${edgeHtml}
+                    </div>
+                    ${confRing(pick.confidence)}
+                </div>
+                ${pick.reasoning ? `<div class="reasoning"><strong>Analysis:</strong> ${pick.reasoning}</div>` : ''}
+            </div>`;
+    }
+
+    // ═══════ FETCH PICKS ═══════
+    async function fetchPicks(force = false) {
+        const date = dateInput.value;
+        if (!date) return;
+        const grid = document.getElementById('picksGrid');
+        const statusBar = document.getElementById('statusBar');
+        statusBar.classList.remove('active');
+
+        grid.innerHTML = '<div class="message"><div class="spinner"></div>Generating predictions...</div>';
+
+        try {
+            const url = force ? `${API_BASE}/picks/date/${date}?force=true` : `${API_BASE}/picks/date/${date}`;
+            const res = await fetch(url);
+            const data = await res.json();
+
+            if (data.error) {
+                grid.innerHTML = `<div class="message error">${data.error}</div>`;
+                return;
+            }
+
+            if (!data.picks || data.picks.length === 0) {
+                grid.innerHTML = '<div class="message">No league matches scheduled for this date.</div>';
+                return;
+            }
+
+            const displayDate = new Date(date + 'T12:00:00').toLocaleDateString('en-GB', {
+                weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+            });
+            document.getElementById('statusTitle').textContent = displayDate;
+            document.getElementById('statusCount').textContent = data.count + ' tip' + (data.count !== 1 ? 's' : '');
+            statusBar.classList.add('active');
+
+            grid.innerHTML = '<div class="picks-grid">' + data.picks.map(p => createPickCard(p)).join('') + '</div>';
+        } catch (e) {
+            const demo = {
+                competition: 'Premier League', kick_off: '15:00',
+                home_team: 'Arsenal', away_team: 'Chelsea',
+                probabilities: { home_win: 0.52, draw: 0.24, away_win: 0.24 },
+                pick_type: 'STRAIGHT_WIN', pick_value: 'HOME',
+                confidence: 0.52, edge: 0.08,
+                reasoning: 'Arsenal have a 52% win probability, making them clear favourites. Arsenal are in stronger recent form and have a strong home record.'
+            };
+            const demo2 = {
+                competition: 'La Liga', kick_off: '20:00',
+                home_team: 'Getafe', away_team: 'Barcelona',
+                probabilities: { home_win: 0.18, draw: 0.22, away_win: 0.60 },
+                pick_type: 'STRAIGHT_WIN', pick_value: 'AWAY',
+                confidence: 0.60, edge: 0.12,
+                reasoning: 'Barcelona have a 60% win probability, making them clear favourites. Barcelona are Elo-rated significantly higher and are in stronger recent form.'
+            };
+            const demo3 = {
+                competition: 'Bundesliga', kick_off: '17:30',
+                home_team: 'Dortmund', away_team: 'RB Leipzig',
+                probabilities: { home_win: 0.42, draw: 0.28, away_win: 0.30 },
+                pick_type: 'DOUBLE_CHANCE', pick_value: '1X',
+                confidence: 0.70,
+                reasoning: 'Dortmund have a combined 70% probability of winning or drawing at home. Strong home advantage and superior Elo rating make them the safe pick.'
+            };
+            grid.innerHTML = '<div class="message error" style="padding:20px 0 10px">Server not connected \u2014 showing preview</div>'
+                + '<div class="picks-grid">' + [demo, demo2, demo3].map(p => createPickCard(p)).join('') + '</div>';
+        }
+    }
+
+    // ═══════ ADMIN PANEL ═══════
+    async function loadStatus() {
+        const el = document.getElementById('adminStats');
+        try {
+            const res = await fetch(`${API_BASE}/admin/status`, { headers: authHeaders() });
+            if (res.status === 401) { clearToken(); return; }
+            const d = await res.json();
+            el.innerHTML = `
+                <span class="stat-chip"><strong>${d.total_matches || 0}</strong> matches</span>
+                <span class="stat-chip"><strong>${d.finished_matches || 0}</strong> finished</span>
+                <span class="stat-chip"><strong>${d.features_built || 0}</strong> features</span>
+                <span class="stat-chip"><strong>${d.with_odds || 0}</strong> with odds</span>
+                <span class="stat-chip">XGB: <strong>${d.xgb_model ? '\u2705' : '\u274c'}</strong></span>
+                <span class="stat-chip">Meta: <strong>${d.meta_learner ? '\u2705' : '\u274c'}</strong></span>
             `;
-        }
+        } catch { el.innerHTML = '<span class="stat-chip">Server offline</span>'; }
+    }
 
-        async function fetchPicks(force = false) {
-            const date = dateInput.value;
-            if (!date) return;
-            const grid = document.getElementById('picksGrid');
-            const statusBar = document.getElementById('statusBar');
-            statusBar.classList.remove('active');
+    async function runAdmin(action, btn) {
+        const log = document.getElementById('adminLog');
+        log.classList.add('active');
+        btn.disabled = true;
+        btn.classList.add('running');
+        const label = btn.textContent;
+        btn.textContent = 'Running...';
+        log.textContent += `\u25B6 ${action}...\n`;
 
-            grid.innerHTML = '<div class="message"><div class="spinner"></div>Generating predictions...</div>';
-
-            try {
-                const url = force ? `${API_BASE}/picks/date/${date}?force=true` : `${API_BASE}/picks/date/${date}`;
-                const res = await fetch(url);
-                const data = await res.json();
-
-                if (data.error) {
-                    grid.innerHTML = `<div class="message error">${data.error}</div>`;
-                    return;
-                }
-
-                if (!data.picks || data.picks.length === 0) {
-                    grid.innerHTML = '<div class="message">No League matches scheduled for this date.</div>';
-                    return;
-                }
-
-                const displayDate = new Date(date + 'T12:00:00').toLocaleDateString('en-GB', {
-                    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
-                });
-                document.getElementById('statusTitle').textContent = displayDate;
-                document.getElementById('statusCount').textContent = data.count + ' tip' + (data.count !== 1 ? 's' : '');
-                statusBar.classList.add('active');
-
-                grid.innerHTML = '<div class="picks-list">' + data.picks.map(p => createPickCard(p)).join('') + '</div>';
-            } catch (e) {
-                // Show a demo card so the UI can be previewed without the server
-                const demo = {
-                    competition: 'Premier League', kick_off: '15:00',
-                    home_team: 'Arsenal', away_team: 'Chelsea',
-                    probabilities: { home_win: 0.52, draw: 0.24, away_win: 0.24 },
-                    pick_type: 'STRAIGHT_WIN', pick_value: 'HOME',
-                    confidence: 0.52,
-                    reasoning: 'Arsenal have a 52% win probability, making them clear favourites. Arsenal are in stronger recent form and have a strong home record.'
-                };
-                const demo2 = {
-                    competition: 'La Liga', kick_off: '20:00',
-                    home_team: 'Getafe', away_team: 'Barcelona',
-                    probabilities: { home_win: 0.18, draw: 0.22, away_win: 0.60 },
-                    pick_type: 'STRAIGHT_WIN', pick_value: 'AWAY',
-                    confidence: 0.60,
-                    reasoning: 'Barcelona have a 60% win probability, making them clear favourites. Barcelona are Elo-rated significantly higher and are in stronger recent form.'
-                };
-                grid.innerHTML = '<div class="message error" style="padding:20px 0 10px">Server not connected — showing preview</div>'
-                    + '<div class="picks-list">' + [demo, demo2].map(p => createPickCard(p)).join('') + '</div>';
+        try {
+            const res = await fetch(`${API_BASE}/admin/${action}`, { method: 'POST', headers: authHeaders() });
+            if (res.status === 401) {
+                clearToken();
+                log.textContent += 'Session expired. Please log in again.\n';
+                btn.disabled = false; btn.classList.remove('running'); btn.textContent = label;
+                openLoginModal();
+                return;
             }
-        }
-
-        // --- Admin Panel ---
-        async function loadStatus() {
-            const el = document.getElementById('adminStats');
-            try {
-                const res = await fetch(`${API_BASE}/admin/status`, { headers: authHeaders() });
-                if (res.status === 401) { clearToken(); return; }
-                const d = await res.json();
-                el.innerHTML = `
-                    <span class="admin-stat"><strong>${d.total_matches || 0}</strong> matches</span>
-                    <span class="admin-stat"><strong>${d.finished_matches || 0}</strong> finished</span>
-                    <span class="admin-stat"><strong>${d.features_built || 0}</strong> features</span>
-                    <span class="admin-stat"><strong>${d.with_odds || 0}</strong> with odds</span>
-                    <span class="admin-stat">XGB: <strong>${d.xgb_model ? 'Yes' : 'No'}</strong></span>
-                    <span class="admin-stat">Meta: <strong>${d.meta_learner ? 'Yes' : 'No'}</strong></span>
-                `;
-            } catch { el.innerHTML = '<span class="admin-stat">Server offline</span>'; }
-        }
-
-        async function runAdmin(action, btn) {
-            const log = document.getElementById('adminLog');
-            log.classList.add('active');
-            btn.disabled = true;
-            btn.classList.add('running');
-            const label = btn.textContent;
-            btn.textContent = 'Running...';
-            log.textContent += `> ${action}...\n`;
-
-            try {
-                const res = await fetch(`${API_BASE}/admin/${action}`, { method: 'POST', headers: authHeaders() });
-                if (res.status === 401) {
-                    clearToken();
-                    log.textContent += 'Session expired. Please log in again.\n';
-                    btn.disabled = false; btn.classList.remove('running'); btn.textContent = label;
-                    openLoginModal();
-                    return;
-                }
-                const d = await res.json();
-                if (d.status === 'accepted' || d.status === 'running') {
-                    log.textContent += `${d.message}\n`;
-                    // Poll for completion
-                    const poll = setInterval(async () => {
-                        try {
-                            const sr = await fetch(`${API_BASE}/admin/job-status/${action}`, { headers: authHeaders() });
-                            const s = await sr.json();
-                            if (s.status === 'ok' || s.status === 'error') {
-                                clearInterval(poll);
-                                log.textContent += `${s.message}\n`;
-                                if (s.metrics) log.textContent += `Metrics: ${JSON.stringify(s.metrics, null, 2)}\n`;
-                                btn.disabled = false; btn.classList.remove('running'); btn.textContent = label;
-                                loadStatus();
-                            }
-                        } catch { /* keep polling */ }
-                    }, 3000);
-                } else {
-                    log.textContent += `${d.message || JSON.stringify(d)}\n`;
-                    if (d.metrics) log.textContent += `Metrics: ${JSON.stringify(d.metrics, null, 2)}\n`;
-                    btn.disabled = false; btn.classList.remove('running'); btn.textContent = label;
-                    loadStatus();
-                }
-            } catch (e) {
-                log.textContent += `Error: ${e.message}\n`;
-            }
-
-            btn.disabled = false;
-            btn.classList.remove('running');
-            btn.textContent = label;
-            log.scrollTop = log.scrollHeight;
-        }
-
-        async function runBacktest(btn) {
-            const log = document.getElementById('adminLog');
-            const resultsDiv = document.getElementById('backtestResults');
-            log.classList.add('active');
-            btn.disabled = true;
-            btn.classList.add('running');
-            btn.textContent = 'Running...';
-            log.textContent += '> backtest (last 8 weeks)...\n';
-
-            try {
-                const res = await fetch(`${API_BASE}/admin/backtest`, { method: 'POST', headers: authHeaders() });
-                if (res.status === 401) { clearToken(); openLoginModal(); return; }
-                const d = await res.json();
+            const d = await res.json();
+            if (d.status === 'accepted' || d.status === 'running') {
+                log.textContent += `${d.message}\n`;
+                const poll = setInterval(async () => {
+                    try {
+                        const sr = await fetch(`${API_BASE}/admin/job-status/${action}`, { headers: authHeaders() });
+                        const s = await sr.json();
+                        if (s.status === 'ok' || s.status === 'error') {
+                            clearInterval(poll);
+                            log.textContent += `\u2714 ${s.message}\n`;
+                            if (s.metrics) log.textContent += `Metrics: ${JSON.stringify(s.metrics, null, 2)}\n`;
+                            btn.disabled = false; btn.classList.remove('running'); btn.textContent = label;
+                            loadStatus();
+                        }
+                    } catch { /* keep polling */ }
+                }, 3000);
+            } else {
                 log.textContent += `${d.message || JSON.stringify(d)}\n`;
-
-                if (d.results) {
-                    const r = d.results;
-                    let html = `<div class="backtest-header">Backtest Results (${r.start_date} to ${r.end_date})</div>`;
-                    html += `<div class="backtest-stats">
-                        <span class="backtest-stat"><strong>${r.total_picks}</strong> picks</span>
-                        <span class="backtest-stat"><strong>${(r.accuracy * 100).toFixed(1)}%</strong> accuracy</span>
-                        <span class="backtest-stat"><strong>${r.roi !== null ? r.roi.toFixed(1) + '%' : 'N/A'}</strong> ROI</span>
-                        <span class="backtest-stat"><strong>${r.perfect_matchdays}/${r.total_matchdays}</strong> perfect days</span>
-                        <span class="backtest-stat"><strong>${r.avg_edge !== null ? (r.avg_edge * 100).toFixed(1) + '%' : 'N/A'}</strong> avg edge</span>
-                    </div>`;
-
-                    if (r.by_bet_type) {
-                        html += '<div class="backtest-breakdown"><strong>By Bet Type:</strong>';
-                        for (const [type, stats] of Object.entries(r.by_bet_type)) {
-                            html += ` <span class="backtest-stat">${type}: ${stats.correct}/${stats.total} (${(stats.accuracy * 100).toFixed(0)}%)</span>`;
-                        }
-                        html += '</div>';
-                    }
-
-                    if (r.matchday_results && r.matchday_results.length > 0) {
-                        html += '<div class="backtest-days"><strong>Per Matchday:</strong><div class="backtest-day-grid">';
-                        for (const day of r.matchday_results) {
-                            const cls = day.all_correct ? 'perfect' : (day.accuracy >= 0.6 ? 'good' : 'poor');
-                            html += `<div class="backtest-day ${cls}">
-                                <span class="day-date">${day.date}</span>
-                                <span class="day-score">${day.correct_picks}/${day.total_picks}</span>
-                                <span class="day-profit">${day.profit >= 0 ? '+' : ''}${day.profit.toFixed(2)}</span>
-                            </div>`;
-                        }
-                        html += '</div></div>';
-                    }
-
-                    resultsDiv.innerHTML = html;
-                    resultsDiv.style.display = 'block';
-                }
-            } catch (e) {
-                log.textContent += `Error: ${e.message}\n`;
+                if (d.metrics) log.textContent += `Metrics: ${JSON.stringify(d.metrics, null, 2)}\n`;
+                btn.disabled = false; btn.classList.remove('running'); btn.textContent = label;
+                loadStatus();
             }
-
-            btn.disabled = false;
-            btn.classList.remove('running');
-            btn.textContent = 'Run Backtest';
-            log.scrollTop = log.scrollHeight;
+        } catch (e) {
+            log.textContent += `\u2718 Error: ${e.message}\n`;
+            btn.disabled = false; btn.classList.remove('running'); btn.textContent = label;
         }
 
-        // --- Pipeline status footer ---
-        async function loadPipelineStatus() {
-            const el = document.getElementById('pipelineItems');
-            try {
-                const res = await fetch(`${API_BASE}/pipeline-status`);
-                if (!res.ok) return;
-                const d = await res.json();
+        log.scrollTop = log.scrollHeight;
+    }
 
-                const fmt = (info, label, extra) => {
-                    const s = info?.status;
-                    const dotClass = s === 'ok' ? 'ok' : s === 'error' ? 'error' : s === 'running' ? 'running' : '';
-                    const lastRun = info?.last_run ? `Last: ${info.last_run}` : 'Never run';
-                    const extraText = extra ? ` · ${extra}` : '';
-                    return `<span class="pipeline-item">
-                        <span class="pipeline-dot ${dotClass}"></span>
-                        <span><strong style="color:var(--text)">${label}</strong> &mdash; ${lastRun}${extraText}</span>
-                    </span>`;
-                };
+    async function runBacktest(btn) {
+        const log = document.getElementById('adminLog');
+        const resultsDiv = document.getElementById('backtestResults');
+        log.classList.add('active');
+        btn.disabled = true;
+        btn.classList.add('running');
+        btn.textContent = 'Running...';
+        log.textContent += '\u25B6 backtest (last 8 weeks)...\n';
 
-                const nextRun = d.pipeline?.next_run ? `Next: ${d.pipeline.next_run}` : '';
-                const retrainAction = d.retrain?.action === 'retrained' ? 'Retrained' : d.retrain?.action === 'none' ? 'No change' : '';
+        try {
+            const res = await fetch(`${API_BASE}/admin/backtest`, { method: 'POST', headers: authHeaders() });
+            if (res.status === 401) { clearToken(); openLoginModal(); return; }
+            const d = await res.json();
 
-                el.innerHTML =
-                    fmt(d.pipeline, 'Data Pipeline', nextRun) +
-                    fmt(d.outcomes, 'Outcomes', '') +
-                    fmt(d.retrain,  'Model', retrainAction);
-            } catch {
-                el.innerHTML = '<span class="pipeline-item"><span class="pipeline-dot"></span>Status unavailable</span>';
+            if (d.status === 'accepted' || d.status === 'running') {
+                log.textContent += `${d.message}\n`;
+                const poll = setInterval(async () => {
+                    try {
+                        const sr = await fetch(`${API_BASE}/admin/job-status/backtest`, { headers: authHeaders() });
+                        const s = await sr.json();
+                        if (s.status === 'ok' || s.status === 'error') {
+                            clearInterval(poll);
+                            log.textContent += `\u2714 ${s.message}\n`;
+                            if (s.results) renderBacktest(s.results, resultsDiv);
+                            btn.disabled = false; btn.classList.remove('running'); btn.textContent = 'Run Backtest';
+                        }
+                    } catch { /* keep polling */ }
+                }, 3000);
+            } else {
+                log.textContent += `${d.message || JSON.stringify(d)}\n`;
+                if (d.results) renderBacktest(d.results, resultsDiv);
+                btn.disabled = false; btn.classList.remove('running'); btn.textContent = 'Run Backtest';
             }
+        } catch (e) {
+            log.textContent += `\u2718 Error: ${e.message}\n`;
+            btn.disabled = false; btn.classList.remove('running'); btn.textContent = 'Run Backtest';
         }
 
-        window.addEventListener('DOMContentLoaded', () => { fetchPicks(); loadPipelineStatus(); });
-        dateInput.addEventListener('change', () => fetchPicks());
-        // Refresh pipeline status every 60 seconds
-        setInterval(loadPipelineStatus, 60_000);
-    </script>
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function renderBacktest(r, resultsDiv) {
+        let html = `<div class="backtest-header">Backtest Results (${r.start_date} to ${r.end_date})</div>`;
+        html += `<div class="backtest-stats">
+            <span class="backtest-stat"><strong>${r.total_picks}</strong> picks</span>
+            <span class="backtest-stat"><strong>${(r.accuracy * 100).toFixed(1)}%</strong> accuracy</span>
+            <span class="backtest-stat"><strong>${r.roi !== null ? r.roi.toFixed(1) + '%' : 'N/A'}</strong> ROI</span>
+            <span class="backtest-stat"><strong>${r.perfect_matchdays}/${r.total_matchdays}</strong> perfect days</span>
+            <span class="backtest-stat"><strong>${r.avg_edge !== null ? (r.avg_edge * 100).toFixed(1) + '%' : 'N/A'}</strong> avg edge</span>
+        </div>`;
+
+        if (r.by_bet_type) {
+            html += '<div class="backtest-breakdown"><strong>By Bet Type:</strong>';
+            for (const [type, stats] of Object.entries(r.by_bet_type)) {
+                html += ` <span class="backtest-stat">${type}: ${stats.correct}/${stats.total} (${(stats.accuracy * 100).toFixed(0)}%)</span>`;
+            }
+            html += '</div>';
+        }
+
+        if (r.matchday_results && r.matchday_results.length > 0) {
+            html += '<div class="backtest-days"><strong>Per Matchday:</strong><div class="backtest-day-grid">';
+            for (const day of r.matchday_results) {
+                const cls = day.all_correct ? 'perfect' : (day.accuracy >= 0.6 ? 'good' : 'poor');
+                html += `<div class="backtest-day ${cls}">
+                    <span class="day-date">${day.date}</span>
+                    <span class="day-score">${day.correct_picks}/${day.total_picks}</span>
+                    <span class="day-profit">${day.profit >= 0 ? '+' : ''}${day.profit.toFixed(2)}</span>
+                </div>`;
+            }
+            html += '</div></div>';
+        }
+
+        resultsDiv.innerHTML = html;
+        resultsDiv.style.display = 'block';
+    }
+
+    // ═══════ PIPELINE STATUS ═══════
+    async function loadPipelineStatus() {
+        const el = document.getElementById('pipelineItems');
+        try {
+            const res = await fetch(`${API_BASE}/pipeline-status`);
+            if (!res.ok) return;
+            const d = await res.json();
+
+            const fmt = (info, label, extra) => {
+                const s = info?.status;
+                const dotClass = s === 'ok' ? 'ok' : s === 'error' ? 'error' : s === 'running' ? 'running' : '';
+                const lastRun = info?.last_run ? `Last: ${info.last_run}` : 'Never run';
+                const extraText = extra ? ` \u00B7 ${extra}` : '';
+                return `<span class="pipeline-item">
+                    <span class="pipeline-dot ${dotClass}"></span>
+                    <span><strong style="color:var(--text)">${label}</strong> \u2014 ${lastRun}${extraText}</span>
+                </span>`;
+            };
+
+            const nextRun = d.pipeline?.next_run ? `Next: ${d.pipeline.next_run}` : '';
+            const retrainAction = d.retrain?.action === 'retrained' ? 'Retrained' : d.retrain?.action === 'none' ? 'No change' : '';
+
+            el.innerHTML =
+                fmt(d.pipeline, 'Data Pipeline', nextRun) +
+                fmt(d.outcomes, 'Outcomes', '') +
+                fmt(d.retrain,  'Model', retrainAction);
+        } catch {
+            el.innerHTML = '<span class="pipeline-item"><span class="pipeline-dot"></span>Status unavailable</span>';
+        }
+    }
+
+    // ═══════ INIT ═══════
+    window.addEventListener('DOMContentLoaded', () => { fetchPicks(); loadPipelineStatus(); });
+    dateInput.addEventListener('change', () => fetchPicks());
+    setInterval(loadPipelineStatus, 60_000);
+</script>
 </body>
 </html>

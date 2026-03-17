@@ -41,7 +41,9 @@ async def _run_sync():
             await collector.sync_competitions(session)
             for code in COMPETITIONS:
                 await collector.sync_teams(session, code)
-                for season in ["2023", "2024", "2025"]:
+            # Sync matches after all teams are loaded
+            for code in COMPETITIONS:
+                for season in ["2024", "2025"]:
                     await collector.sync_matches(session, code, season=season)
         _set_job("sync-data", "ok", "Football data synced successfully.")
     except Exception as e:
@@ -90,14 +92,16 @@ async def _run_build_features():
             result = await session.execute(stmt)
             matches = result.scalars().all()
 
+            total = len(matches)
             count = 0
             for match in matches:
                 try:
                     feature = await build_features_for_match(session, match)
                     session.add(feature)
                     count += 1
-                    if count % 100 == 0:
+                    if count % 50 == 0:
                         await session.commit()
+                        _set_job("build-features", "running", f"Built {count}/{total} features...")
                 except Exception:
                     logger.exception("Failed for match %s", match.id)
 

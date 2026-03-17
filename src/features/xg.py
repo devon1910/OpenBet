@@ -15,6 +15,7 @@ async def compute_xg_features(
     team_id: int,
     before_match_id: int,
     n_matches: int = 7,
+    ref_date=None,
 ) -> dict:
     """Compute xG features for a team from their last N finished matches.
 
@@ -24,9 +25,11 @@ async def compute_xg_features(
         xg_diff: xg_created_avg - xg_conceded_avg
         xg_trend: slope of xG created over the window (positive = improving)
     """
-    ref_match = (await session.execute(
-        select(Match).where(Match.id == before_match_id)
-    )).scalar_one()
+    if ref_date is None:
+        ref_match = (await session.execute(
+            select(Match).where(Match.id == before_match_id)
+        )).scalar_one()
+        ref_date = ref_match.match_date
 
     stmt = (
         select(Match)
@@ -36,7 +39,7 @@ async def compute_xg_features(
                 Match.away_team_id == team_id,
             ),
             Match.status == "FINISHED",
-            Match.match_date < ref_match.match_date,
+            Match.match_date < ref_date,
             Match.home_xg.is_not(None),
             Match.away_xg.is_not(None),
         )

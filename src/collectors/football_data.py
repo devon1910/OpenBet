@@ -109,6 +109,16 @@ class FootballDataCollector(BaseCollector):
         if not comp:
             return
 
+        # Preload all teams into a lookup dict to avoid per-match DB queries
+        all_teams = (await session.execute(select(Team))).scalars().all()
+        team_map = {t.external_id: t for t in all_teams}
+
+        # Preload existing match external_ids for this competition
+        existing_matches = (await session.execute(
+            select(Match).where(Match.competition_id == comp.id)
+        )).scalars().all()
+        match_map = {m.external_id: m for m in existing_matches}
+
         params = {}
         if season:
             params["season"] = season
@@ -122,12 +132,8 @@ class FootballDataCollector(BaseCollector):
             home_ext = str(m["homeTeam"]["id"])
             away_ext = str(m["awayTeam"]["id"])
 
-            home_team = (await session.execute(
-                select(Team).where(Team.external_id == home_ext)
-            )).scalar_one_or_none()
-            away_team = (await session.execute(
-                select(Team).where(Team.external_id == away_ext)
-            )).scalar_one_or_none()
+            home_team = team_map.get(home_ext)
+            away_team = team_map.get(away_ext)
 
             if not home_team or not away_team:
                 logger.warning("Team not found for match %s", ext_id)
@@ -136,10 +142,7 @@ class FootballDataCollector(BaseCollector):
             score = m.get("score", {}).get("fullTime", {})
             match_date = datetime.fromisoformat(m["utcDate"].replace("Z", "+00:00"))
 
-            existing = await session.execute(
-                select(Match).where(Match.external_id == ext_id)
-            )
-            match = existing.scalar_one_or_none()
+            match = match_map.get(ext_id)
             if match:
                 match.status = m.get("status", match.status)
                 match.home_goals = score.get("home")
@@ -158,6 +161,7 @@ class FootballDataCollector(BaseCollector):
                     away_goals=score.get("away"),
                 )
                 session.add(match)
+                match_map[ext_id] = match
 
         await session.commit()
         logger.info("Synced matches for %s", competition_code)

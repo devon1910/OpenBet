@@ -26,10 +26,11 @@ async def build_features_for_match(
     home_id = match.home_team_id
     away_id = match.away_team_id
     comp_id = match.competition_id
+    ref_date = match.match_date
 
     # Form
-    home_form = await compute_form(session, home_id, match.id)
-    away_form = await compute_form(session, away_id, match.id)
+    home_form = await compute_form(session, home_id, match.id, ref_date=ref_date)
+    away_form = await compute_form(session, away_id, match.id, ref_date=ref_date)
 
     # Strength
     home_str = await compute_strength(session, home_id, comp_id)
@@ -40,20 +41,20 @@ async def build_features_for_match(
     away_elo = await get_or_create_elo(session, away_id)
 
     # xG
-    home_xg = await compute_xg_features(session, home_id, match.id)
-    away_xg = await compute_xg_features(session, away_id, match.id)
+    home_xg = await compute_xg_features(session, home_id, match.id, ref_date=ref_date)
+    away_xg = await compute_xg_features(session, away_id, match.id, ref_date=ref_date)
 
     # Home advantage
     home_adv = await compute_home_advantage(session, home_id, comp_id)
 
     # Head-to-head
-    h2h = await compute_h2h(session, home_id, away_id, match.id)
+    h2h = await compute_h2h(session, home_id, away_id, match.id, ref_date=ref_date)
 
     # Match context
-    home_rest = await compute_days_rest(session, home_id, match.id)
-    away_rest = await compute_days_rest(session, away_id, match.id)
-    home_congestion = await compute_fixture_congestion(session, home_id, match.id)
-    away_congestion = await compute_fixture_congestion(session, away_id, match.id)
+    home_rest = await compute_days_rest(session, home_id, match.id, ref_date=ref_date)
+    away_rest = await compute_days_rest(session, away_id, match.id, ref_date=ref_date)
+    home_congestion = await compute_fixture_congestion(session, home_id, match.id, ref_date=ref_date)
+    away_congestion = await compute_fixture_congestion(session, away_id, match.id, ref_date=ref_date)
 
     xg_diff = None
     if home_xg["xg_created_avg"] is not None and away_xg["xg_created_avg"] is not None:

@@ -5,8 +5,12 @@ K-factor: 32 standard, 40 for high-stakes.
 Home advantage: +65 Elo points for home team expected score.
 """
 
+import logging
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from src.config import settings
 from src.models.elo import EloHistory, EloRating
@@ -98,6 +102,16 @@ async def update_elo_for_match(
 
 async def process_all_matches(session: AsyncSession):
     """Process all finished matches in chronological order to build Elo ratings."""
+    # Preload all already-processed match IDs in one query
+    processed_result = await session.execute(
+        select(EloHistory.match_id).distinct()
+    )
+    processed_ids = {row[0] for row in processed_result.all()}
+
+    # Preload all Elo ratings into memory
+    elo_result = await session.execute(select(EloRating))
+    elo_cache = {e.team_id: e for e in elo_result.scalars().all()}
+
     stmt = (
         select(Match)
         .where(Match.status == "FINISHED")
@@ -106,17 +120,26 @@ async def process_all_matches(session: AsyncSession):
     result = await session.execute(stmt)
     matches = result.scalars().all()
 
+    count = 0
     for match in matches:
-        # Skip if already processed
-        existing = await session.execute(
-            select(EloHistory).where(
-                EloHistory.match_id == match.id,
-                EloHistory.team_id == match.home_team_id,
-            )
-        )
-        if existing.scalar_one_or_none():
+        if match.id in processed_ids:
             continue
 
+        # Use cached Elo or create new
+        if match.home_team_id not in elo_cache:
+            elo = EloRating(team_id=match.home_team_id, rating=settings.elo_initial_rating)
+            session.add(elo)
+            elo_cache[match.home_team_id] = elo
+        if match.away_team_id not in elo_cache:
+            elo = EloRating(team_id=match.away_team_id, rating=settings.elo_initial_rating)
+            session.add(elo)
+            elo_cache[match.away_team_id] = elo
+
         await update_elo_for_match(session, match)
+        count += 1
+
+        if count % 200 == 0:
+            await session.flush()
 
     await session.commit()
+    logger.info("Processed Elo for %d new matches", count)

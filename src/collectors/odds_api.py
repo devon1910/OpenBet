@@ -137,6 +137,41 @@ class OddsApiCollector(BaseCollector):
         """Fetch odds for all supported leagues and update MatchFeature records."""
         total_updated = 0
 
+        # Preload all teams into a name-lookup dict (lowercase for fuzzy matching)
+        all_teams = (await session.execute(select(Team))).scalars().all()
+        team_by_name = {}
+        for t in all_teams:
+            team_by_name[t.name.lower()] = t
+            if t.short_name:
+                team_by_name[t.short_name.lower()] = t
+
+        # Preload all scheduled matches indexed by (home_team_id, away_team_id)
+        scheduled = (await session.execute(
+            select(Match).where(Match.status.in_(["SCHEDULED", "TIMED"]))
+        )).scalars().all()
+        match_lookup = {(m.home_team_id, m.away_team_id): m for m in scheduled}
+
+        # Preload all features indexed by match_id
+        feature_ids = [m.id for m in scheduled]
+        if feature_ids:
+            features = (await session.execute(
+                select(MatchFeature).where(MatchFeature.match_id.in_(feature_ids))
+            )).scalars().all()
+            feature_lookup = {f.match_id: f for f in features}
+        else:
+            feature_lookup = {}
+
+        def find_team(name):
+            """Fuzzy match team name against preloaded teams."""
+            key = name.lower()
+            if key in team_by_name:
+                return team_by_name[key]
+            # Partial match
+            for tname, team in team_by_name.items():
+                if key in tname or tname in key:
+                    return team
+            return None
+
         for sport_key in SPORT_KEYS:
             try:
                 events = await self.fetch_odds_for_sport(sport_key)
@@ -149,37 +184,17 @@ class OddsApiCollector(BaseCollector):
                 if not odds:
                     continue
 
-                # Find the match by team names and date
-                home_name = odds["home_team"]
-                away_name = odds["away_team"]
-
-                home_team = (await session.execute(
-                    select(Team).where(Team.name.ilike(f"%{home_name}%"))
-                )).scalar_one_or_none()
-                away_team = (await session.execute(
-                    select(Team).where(Team.name.ilike(f"%{away_name}%"))
-                )).scalar_one_or_none()
+                home_team = find_team(odds["home_team"])
+                away_team = find_team(odds["away_team"])
 
                 if not home_team or not away_team:
                     continue
 
-                # Find upcoming match between these teams
-                match = (await session.execute(
-                    select(Match).where(
-                        Match.home_team_id == home_team.id,
-                        Match.away_team_id == away_team.id,
-                        Match.status.in_(["SCHEDULED", "TIMED"]),
-                    )
-                )).scalar_one_or_none()
-
+                match = match_lookup.get((home_team.id, away_team.id))
                 if not match:
                     continue
 
-                # Update the MatchFeature record
-                feature = (await session.execute(
-                    select(MatchFeature).where(MatchFeature.match_id == match.id)
-                )).scalar_one_or_none()
-
+                feature = feature_lookup.get(match.id)
                 if feature:
                     feature.odds_home = odds["odds_home"]
                     feature.odds_draw = odds["odds_draw"]

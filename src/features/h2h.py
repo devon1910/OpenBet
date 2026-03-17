@@ -16,23 +16,25 @@ async def compute_h2h(
     away_team_id: int,
     before_match_id: int,
     n_meetings: int = 10,
+    ref_date=None,
 ) -> dict:
     """Compute head-to-head record from the last N meetings between two teams.
 
     Considers matches where either team was home or away (both directions).
     Returns h2h stats from the perspective of the current home team.
     """
-    # Get reference match date
-    ref_match = (await session.execute(
-        select(Match).where(Match.id == before_match_id)
-    )).scalar_one()
+    if ref_date is None:
+        ref_match = (await session.execute(
+            select(Match).where(Match.id == before_match_id)
+        )).scalar_one()
+        ref_date = ref_match.match_date
 
     # Fetch last N finished meetings between these two teams
     stmt = (
         select(Match)
         .where(
             Match.status == "FINISHED",
-            Match.match_date < ref_match.match_date,
+            Match.match_date < ref_date,
             Match.home_goals.is_not(None),
             or_(
                 and_(

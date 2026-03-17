@@ -16,15 +16,17 @@ async def compute_form(
     team_id: int,
     before_match_id: int,
     n_matches: int = 6,
+    ref_date=None,
 ) -> float:
     """Compute weighted form score for a team from their last N finished matches.
 
     Returns a score in [0, 3] where 3 = all wins, 0 = all losses.
     """
-    # Get the reference match date
-    ref_match = (await session.execute(
-        select(Match).where(Match.id == before_match_id)
-    )).scalar_one()
+    if ref_date is None:
+        ref_match = (await session.execute(
+            select(Match).where(Match.id == before_match_id)
+        )).scalar_one()
+        ref_date = ref_match.match_date
 
     # Fetch last N finished matches for this team
     stmt = (
@@ -35,7 +37,7 @@ async def compute_form(
                 Match.away_team_id == team_id,
             ),
             Match.status == "FINISHED",
-            Match.match_date < ref_match.match_date,
+            Match.match_date < ref_date,
         )
         .order_by(Match.match_date.desc())
         .limit(n_matches)

@@ -987,18 +987,29 @@
                     openLoginModal();
                     return;
                 }
-                const text = await res.text();
-                let d;
-                try { d = JSON.parse(text); } catch {
-                    log.textContent += `Server error (${res.status}): ${text.substring(0, 500)}\n`;
+                const d = await res.json();
+                if (d.status === 'accepted' || d.status === 'running') {
+                    log.textContent += `${d.message}\n`;
+                    // Poll for completion
+                    const poll = setInterval(async () => {
+                        try {
+                            const sr = await fetch(`${API_BASE}/admin/job-status/${action}`, { headers: authHeaders() });
+                            const s = await sr.json();
+                            if (s.status === 'ok' || s.status === 'error') {
+                                clearInterval(poll);
+                                log.textContent += `${s.message}\n`;
+                                if (s.metrics) log.textContent += `Metrics: ${JSON.stringify(s.metrics, null, 2)}\n`;
+                                btn.disabled = false; btn.classList.remove('running'); btn.textContent = label;
+                                loadStatus();
+                            }
+                        } catch { /* keep polling */ }
+                    }, 3000);
+                } else {
+                    log.textContent += `${d.message || JSON.stringify(d)}\n`;
+                    if (d.metrics) log.textContent += `Metrics: ${JSON.stringify(d.metrics, null, 2)}\n`;
                     btn.disabled = false; btn.classList.remove('running'); btn.textContent = label;
-                    return;
+                    loadStatus();
                 }
-                log.textContent += `${d.message || JSON.stringify(d)}\n`;
-                if (d.metrics) {
-                    log.textContent += `Metrics: ${JSON.stringify(d.metrics, null, 2)}\n`;
-                }
-                loadStatus();
             } catch (e) {
                 log.textContent += `Error: ${e.message}\n`;
             }

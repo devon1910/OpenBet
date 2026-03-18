@@ -146,14 +146,17 @@ async def _run_build_features():
 
 
 async def _run_train():
+    import time
     from src.database import async_session
     from src.models_ml.training import load_training_data, train_from_dataframe
 
     await _set_job_status("train", "running", "Training model — loading data...")
     try:
         # Step 1: Load data from DB (async)
+        t0 = time.time()
         async with async_session() as session:
             df = await load_training_data(session)
+        logger.info("[train] Data loaded: %d rows in %.1fs", len(df), time.time() - t0)
 
         if len(df) < 50:
             await _set_job_status("train", "error", f"Not enough data: {len(df)} matches", metrics={"n_matches": len(df)})
@@ -244,7 +247,23 @@ async def run_action(action: str):
 
     current = await _get_job_status(action)
     if current.get("status") == "running":
-        return {"status": "running", "message": f"{action} is already running."}
+        # Allow restart if job has been "running" for more than 10 minutes (stale/crashed)
+        updated = current.get("updated_at")
+        stale = False
+        if updated:
+            try:
+                from datetime import datetime, timezone
+                if isinstance(updated, str):
+                    updated_dt = datetime.fromisoformat(updated)
+                else:
+                    updated_dt = updated
+                if updated_dt.tzinfo is None:
+                    updated_dt = updated_dt.replace(tzinfo=timezone.utc)
+                stale = (datetime.now(timezone.utc) - updated_dt).total_seconds() > 600
+            except Exception:
+                pass
+        if not stale:
+            return {"status": "running", "message": f"{action} is already running."}
 
     asyncio.create_task(runner())
     return {"status": "accepted", "message": f"{action} started in background."}

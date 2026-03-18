@@ -5,6 +5,7 @@ collects out-of-fold predictions, and trains a meta-learner on top.
 """
 
 import logging
+import time
 
 import numpy as np
 import pandas as pd
@@ -95,11 +96,13 @@ def train_from_dataframe(df: pd.DataFrame, version: str = "v1") -> dict:
         logger.warning("Not enough data for training: %d matches", len(df))
         return {"error": "insufficient_data", "n_matches": len(df)}
 
+    t0 = time.time()
     logger.info("Training on %d matches", len(df))
 
     tscv = TimeSeriesSplit(n_splits=3)
     X = prepare_features(df)
     y = df.apply(lambda r: encode_outcome(r["home_goals"], r["away_goals"]), axis=1)
+    logger.info("[train] prepare_features done in %.1fs", time.time() - t0)
 
     accuracies = []
     log_losses = []
@@ -108,16 +111,21 @@ def train_from_dataframe(df: pd.DataFrame, version: str = "v1") -> dict:
     oof_meta_X = []
     oof_meta_y = []
 
+    t1 = time.time()
     poisson_probs_all = _get_poisson_probs(X)
+    logger.info("[train] poisson_probs done in %.1fs", time.time() - t1)
+
     odds_probs_all = _get_odds_probs(X)
 
-    for train_idx, val_idx in tscv.split(X):
+    for fold_i, (train_idx, val_idx) in enumerate(tscv.split(X)):
+        t2 = time.time()
         X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
         y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
 
         # Train XGBoost on this fold
         model = create_model()
         model.fit(X_train, y_train)
+        logger.info("[train] fold %d XGBoost fit done in %.1fs", fold_i, time.time() - t2)
 
         # XGBoost validation predictions
         xgb_val_probs = model.predict_proba(X_val)
@@ -138,7 +146,9 @@ def train_from_dataframe(df: pd.DataFrame, version: str = "v1") -> dict:
     all_meta_X = np.vstack(oof_meta_X)
     all_meta_y = np.concatenate(oof_meta_y)
 
+    t3 = time.time()
     meta_model = train_meta_learner(all_meta_X, all_meta_y, version)
+    logger.info("[train] meta_learner done in %.1fs", time.time() - t3)
 
     # Evaluate meta-learner
     meta_pred = meta_model.predict(all_meta_X)
@@ -147,8 +157,11 @@ def train_from_dataframe(df: pd.DataFrame, version: str = "v1") -> dict:
     meta_logloss = log_loss(all_meta_y, meta_proba)
 
     # Train final XGBoost on all data
+    t4 = time.time()
     final_model = train(df, version)
+    logger.info("[train] final XGBoost done in %.1fs", time.time() - t4)
 
+    total_time = time.time() - t0
     metrics = {
         "n_matches": len(df),
         "xgb_cv_accuracy_mean": float(np.mean(accuracies)),
@@ -160,8 +173,9 @@ def train_from_dataframe(df: pd.DataFrame, version: str = "v1") -> dict:
         "meta_n_features": int(all_meta_X.shape[1]),
         "has_odds": odds_probs_all is not None,
         "model_version": version,
+        "training_time_seconds": round(total_time, 1),
     }
-    logger.info("Training complete: %s", metrics)
+    logger.info("Training complete in %.1fs: %s", total_time, metrics)
     return metrics
 
 

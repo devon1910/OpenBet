@@ -81,11 +81,8 @@ def _get_odds_probs(df: pd.DataFrame) -> np.ndarray | None:
     return odds
 
 
-async def train_and_evaluate(
-    session: AsyncSession,
-    version: str = "v1",
-) -> dict:
-    """Full training pipeline with time-series CV and meta-learner training.
+def train_from_dataframe(df: pd.DataFrame, version: str = "v1") -> dict:
+    """CPU-bound training pipeline. Safe to call from a thread.
 
     1. Train XGBoost with TimeSeriesSplit CV
     2. Collect out-of-fold predictions from all base models
@@ -94,7 +91,6 @@ async def train_and_evaluate(
 
     Returns evaluation metrics.
     """
-    df = await load_training_data(session)
     if len(df) < 50:
         logger.warning("Not enough data for training: %d matches", len(df))
         return {"error": "insufficient_data", "n_matches": len(df)}
@@ -167,3 +163,12 @@ async def train_and_evaluate(
     }
     logger.info("Training complete: %s", metrics)
     return metrics
+
+
+async def train_and_evaluate(
+    session: AsyncSession,
+    version: str = "v1",
+) -> dict:
+    """Async wrapper: loads data from DB, then runs training."""
+    df = await load_training_data(session)
+    return train_from_dataframe(df, version)

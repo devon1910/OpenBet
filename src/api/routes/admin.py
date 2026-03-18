@@ -147,12 +147,22 @@ async def _run_build_features():
 
 async def _run_train():
     from src.database import async_session
-    from src.models_ml.training import train_and_evaluate
+    from src.models_ml.training import load_training_data, train_from_dataframe
 
-    await _set_job_status("train", "running", "Training model...")
+    await _set_job_status("train", "running", "Training model — loading data...")
     try:
+        # Step 1: Load data from DB (async)
         async with async_session() as session:
-            metrics = await train_and_evaluate(session, version="v1")
+            df = await load_training_data(session)
+
+        if len(df) < 50:
+            await _set_job_status("train", "error", f"Not enough data: {len(df)} matches", metrics={"n_matches": len(df)})
+            return
+
+        await _set_job_status("train", "running", f"Training on {len(df)} matches...")
+
+        # Step 2: Run CPU-bound training in a thread so it doesn't block the event loop
+        metrics = await asyncio.to_thread(train_from_dataframe, df, "v1")
     except Exception as e:
         logger.exception("Training crashed")
         await _set_job_status("train", "error", f"Training crashed: {type(e).__name__}: {e}")

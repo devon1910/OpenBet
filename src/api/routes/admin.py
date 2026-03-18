@@ -1,11 +1,13 @@
 """Admin endpoints - trigger data sync, training, and other operations from the UI."""
 
 import asyncio
+import json
 import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from src.api.auth import require_admin
 from src.api.deps import get_db
@@ -13,28 +15,57 @@ from src.api.deps import get_db
 logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(require_admin)])
 
-# Track background job status
-_jobs: dict[str, dict] = {}
+
+async def _get_job_status(action: str) -> dict:
+    from src.database import async_session
+    from src.models.job_status import JobStatus
+
+    try:
+        async with async_session() as session:
+            row = await session.get(JobStatus, action)
+            if row is None:
+                return {"status": "idle"}
+            result = {
+                "status": row.status,
+                "message": row.message,
+                "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+            }
+            if row.extra_json:
+                try:
+                    result.update(json.loads(row.extra_json))
+                except Exception:
+                    pass
+            return result
+    except Exception as e:
+        logger.warning("Could not read job status from DB: %s", e)
+        return {"status": "idle"}
 
 
-def _job_status(action: str) -> dict:
-    return _jobs.get(action, {"status": "idle"})
+async def _set_job_status(action: str, status: str, message: str = "", **extra):
+    from src.database import async_session
+    from src.models.job_status import JobStatus
 
-
-def _set_job(action: str, status: str, message: str = "", **extra):
-    _jobs[action] = {
-        "status": status,
-        "message": message,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-        **extra,
-    }
+    extra_json = json.dumps(extra) if extra else ""
+    try:
+        async with async_session() as session:
+            row = await session.get(JobStatus, action)
+            if row is None:
+                row = JobStatus(action=action)
+                session.add(row)
+            row.status = status
+            row.message = message
+            row.extra_json = extra_json
+            row.updated_at = datetime.now(timezone.utc)
+            await session.commit()
+    except Exception as e:
+        logger.warning("Could not write job status to DB: %s", e)
 
 
 async def _run_sync():
     from src.collectors.football_data import FootballDataCollector, COMPETITIONS
     from src.database import async_session
 
-    _set_job("sync-data", "running", "Syncing match data...")
+    await _set_job_status("sync-data", "running", "Syncing match data...")
     collector = FootballDataCollector()
     try:
         async with async_session() as session:
@@ -45,10 +76,10 @@ async def _run_sync():
             for code in COMPETITIONS:
                 for season in ["2024", "2025"]:
                     await collector.sync_matches(session, code, season=season)
-        _set_job("sync-data", "ok", "Football data synced successfully.")
+        await _set_job_status("sync-data", "ok", "Football data synced successfully.")
     except Exception as e:
         logger.exception("Sync failed")
-        _set_job("sync-data", "error", str(e))
+        await _set_job_status("sync-data", "error", str(e))
     finally:
         await collector.close()
 
@@ -57,15 +88,15 @@ async def _run_fetch_odds():
     from src.collectors.odds_api import OddsApiCollector
     from src.database import async_session
 
-    _set_job("fetch-odds", "running", "Fetching odds...")
+    await _set_job_status("fetch-odds", "running", "Fetching odds...")
     collector = OddsApiCollector()
     try:
         async with async_session() as session:
             await collector.enrich_odds(session)
-        _set_job("fetch-odds", "ok", "Odds fetched successfully.")
+        await _set_job_status("fetch-odds", "ok", "Odds fetched successfully.")
     except Exception as e:
         logger.exception("Odds fetch failed")
-        _set_job("fetch-odds", "error", str(e))
+        await _set_job_status("fetch-odds", "error", str(e))
     finally:
         await collector.close()
 
@@ -78,7 +109,7 @@ async def _run_build_features():
     from src.models.match import Match
     from sqlalchemy import select
 
-    _set_job("build-features", "running", "Building features...")
+    await _set_job_status("build-features", "running", "Building features...")
     try:
         async with async_session() as session:
             await process_all_matches(session)
@@ -101,35 +132,34 @@ async def _run_build_features():
                     count += 1
                     if count % 50 == 0:
                         await session.commit()
-                        _set_job("build-features", "running", f"Built {count}/{total} features...")
+                        await _set_job_status("build-features", "running", f"Built {count}/{total} features...")
                 except Exception:
                     logger.exception("Failed for match %s", match.id)
 
             await session.commit()
             upcoming = await build_features_for_upcoming(session)
 
-        _set_job("build-features", "ok", f"Built features for {count} historical + {upcoming} upcoming matches.")
+        await _set_job_status("build-features", "ok", f"Built features for {count} historical + {upcoming} upcoming matches.")
     except Exception as e:
         logger.exception("Feature building failed")
-        _set_job("build-features", "error", str(e))
+        await _set_job_status("build-features", "error", str(e))
 
 
 async def _run_train():
-    import traceback
     from src.database import async_session
     from src.models_ml.training import train_and_evaluate
 
-    _set_job("train", "running", "Training model...")
+    await _set_job_status("train", "running", "Training model...")
     try:
         async with async_session() as session:
             metrics = await train_and_evaluate(session, version="v1")
     except Exception as e:
         logger.exception("Training crashed")
-        _set_job("train", "error", f"Training crashed: {type(e).__name__}: {e}")
+        await _set_job_status("train", "error", f"Training crashed: {type(e).__name__}: {e}")
         return
 
     if "error" in metrics:
-        _set_job("train", "error", f"Training failed: {metrics['error']}", metrics=metrics)
+        await _set_job_status("train", "error", f"Training failed: {metrics['error']}", metrics=metrics)
         return
 
     try:
@@ -140,21 +170,21 @@ async def _run_train():
     except Exception:
         logger.warning("Could not reload model — restart the server to use new model")
 
-    _set_job("train", "ok", "Training complete.", metrics=metrics)
+    await _set_job_status("train", "ok", "Training complete.", metrics=metrics)
 
 
 async def _run_resolve():
     from src.database import async_session
     from src.learning.tracker import update_outcomes
 
-    _set_job("resolve-outcomes", "running", "Resolving outcomes...")
+    await _set_job_status("resolve-outcomes", "running", "Resolving outcomes...")
     try:
         async with async_session() as session:
             count = await update_outcomes(session)
-        _set_job("resolve-outcomes", "ok", f"Resolved outcomes for {count} picks.")
+        await _set_job_status("resolve-outcomes", "ok", f"Resolved outcomes for {count} picks.")
     except Exception as e:
         logger.exception("Outcome resolution failed")
-        _set_job("resolve-outcomes", "error", str(e))
+        await _set_job_status("resolve-outcomes", "error", str(e))
 
 
 async def _run_backtest():
@@ -162,7 +192,7 @@ async def _run_backtest():
     from src.database import async_session
     from src.learning.backtester import backtest
 
-    _set_job("backtest", "running", "Running backtest...")
+    await _set_job_status("backtest", "running", "Running backtest...")
     end = date.today()
     start = end - timedelta(weeks=8)
 
@@ -171,7 +201,7 @@ async def _run_backtest():
             results = await backtest(session, start, end)
     except Exception as e:
         logger.exception("Backtest failed")
-        _set_job("backtest", "error", str(e))
+        await _set_job_status("backtest", "error", str(e))
         return
 
     roi_str = f"{results['roi']:.1f}%" if results.get('roi') is not None else "N/A"
@@ -179,7 +209,7 @@ async def _run_backtest():
            f"{results['accuracy']*100:.1f}% accuracy, "
            f"ROI: {roi_str}, "
            f"Perfect days: {results['perfect_matchdays']}/{results['total_matchdays']}")
-    _set_job("backtest", "ok", msg, results=results)
+    await _set_job_status("backtest", "ok", msg, results=results)
 
 
 _RUNNERS = {
@@ -202,7 +232,7 @@ async def run_action(action: str):
     if not runner:
         return {"status": "error", "message": f"Unknown action: {action}"}
 
-    current = _job_status(action)
+    current = await _get_job_status(action)
     if current.get("status") == "running":
         return {"status": "running", "message": f"{action} is already running."}
 
@@ -213,7 +243,7 @@ async def run_action(action: str):
 @router.get("/job-status/{action}")
 async def get_job_status(action: str):
     """Poll the status of a background job."""
-    return _job_status(action)
+    return await _get_job_status(action)
 
 
 @router.get("/status")
@@ -248,6 +278,18 @@ async def system_status():
     from pathlib import Path
     info["xgb_model"] = Path("trained_models/xgboost_v1.joblib").exists()
     info["meta_learner"] = Path("trained_models/meta_learner_v1.joblib").exists()
-    info["jobs"] = {k: v for k, v in _jobs.items()}
+
+    # Read all job statuses from DB
+    try:
+        from src.database import async_session
+        from src.models.job_status import JobStatus
+        async with async_session() as session:
+            rows = (await session.execute(select(JobStatus))).scalars().all()
+            info["jobs"] = {
+                r.action: {"status": r.status, "message": r.message}
+                for r in rows
+            }
+    except Exception:
+        info["jobs"] = {}
 
     return info

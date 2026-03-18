@@ -3,6 +3,7 @@ from src.models.match import Match
 from src.models.elo import EloRating, EloHistory
 from src.models.feature import MatchFeature
 from src.models.prediction import Prediction, Pick, ModelPerformance
+from src.models.job_status import JobStatus
 
 __all__ = [
     "Competition",
@@ -14,4 +15,5 @@ __all__ = [
     "Prediction",
     "Pick",
     "ModelPerformance",
+    "JobStatus",
 ]

@@ -88,9 +88,9 @@ class BulkFeatureComputer:
             points.append(_match_points(gf, ga))
         return _weighted_form(points)
 
-    def compute_strength(self, team_id: int, competition_id: int) -> dict:
+    def compute_strength(self, team_id: int, competition_id: int, ref_date) -> dict:
         comp_matches = [m for m in self.comp_matches.get(competition_id, [])
-                        if m.home_goals is not None]
+                        if m.home_goals is not None and m.match_date < ref_date]
         if not comp_matches:
             return {"attack_strength": 1.0, "defense_strength": 1.0}
 
@@ -143,9 +143,9 @@ class BulkFeatureComputer:
             "xg_conceded_avg": float(np.mean(conceded)),
         }
 
-    def compute_home_advantage(self, team_id: int, competition_id: int) -> float:
+    def compute_home_advantage(self, team_id: int, competition_id: int, ref_date) -> float:
         home_matches = [m for m in self.comp_matches.get(competition_id, [])
-                        if m.home_team_id == team_id and m.home_goals is not None]
+                        if m.home_team_id == team_id and m.home_goals is not None and m.match_date < ref_date]
         if not home_matches:
             return 0.46
         wins = sum(1 for m in home_matches if m.home_goals > m.away_goals)
@@ -212,8 +212,8 @@ class BulkFeatureComputer:
         home_form_home = self.compute_form(home_id, ref_date, venue="home")
         away_form_away = self.compute_form(away_id, ref_date, venue="away")
 
-        home_str = self.compute_strength(home_id, comp_id)
-        away_str = self.compute_strength(away_id, comp_id)
+        home_str = self.compute_strength(home_id, comp_id, ref_date)
+        away_str = self.compute_strength(away_id, comp_id, ref_date)
 
         home_elo = self.elo_cache.get(home_id, 1500.0)
         away_elo = self.elo_cache.get(away_id, 1500.0)
@@ -221,7 +221,7 @@ class BulkFeatureComputer:
         home_xg = self.compute_xg(home_id, ref_date)
         away_xg = self.compute_xg(away_id, ref_date)
 
-        home_adv = self.compute_home_advantage(home_id, comp_id)
+        home_adv = self.compute_home_advantage(home_id, comp_id, ref_date)
         h2h = self.compute_h2h(home_id, away_id, ref_date)
 
         home_rest = self.compute_days_rest(home_id, ref_date)

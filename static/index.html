@@ -326,16 +326,18 @@
 
         /* ═══════════════════ PICKS GRID ═══════════════════ */
         .picks-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
-            gap: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            max-width: 680px;
+            margin: 0 auto;
         }
 
         .pick-card {
             background: var(--glass);
             border: 1px solid var(--glass-border);
             border-radius: var(--radius);
-            padding: 22px;
+            padding: 0;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             overflow: hidden;
@@ -346,27 +348,73 @@
             position: absolute;
             top: 0;
             left: 0;
-            right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(79,143,255,0.3), transparent);
-            opacity: 0;
+            bottom: 0;
+            width: 3px;
+            border-radius: 3px 0 0 3px;
             transition: opacity 0.3s;
         }
+
+        .pick-card.conf-high::before { background: var(--green); }
+        .pick-card.conf-mid::before { background: var(--yellow); }
+        .pick-card.conf-low::before { background: var(--orange); }
 
         .pick-card:hover {
             border-color: var(--border-hover);
             background: var(--surface-hover);
-            transform: translateY(-2px);
+            transform: translateY(-1px);
             box-shadow: 0 8px 32px rgba(0,0,0,0.3);
         }
 
-        .pick-card:hover::before { opacity: 1; }
+        .card-top {
+            display: flex;
+            align-items: stretch;
+            min-height: 0;
+        }
+
+        /* Confidence sidebar */
+        .conf-sidebar {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px 16px;
+            min-width: 72px;
+            background: rgba(255,255,255,0.015);
+            border-right: 1px solid var(--border);
+            gap: 4px;
+        }
+
+        .conf-pct {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -1px;
+            line-height: 1;
+        }
+
+        .conf-pct.high { color: var(--green); }
+        .conf-pct.mid { color: var(--yellow); }
+        .conf-pct.low { color: var(--orange); }
+
+        .conf-sub {
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-faint);
+        }
+
+        /* Card body */
+        .card-body {
+            flex: 1;
+            padding: 18px 20px;
+            min-width: 0;
+        }
 
         .card-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 18px;
+            margin-bottom: 12px;
         }
 
         .league-badge {
@@ -376,7 +424,7 @@
             letter-spacing: 0.8px;
             color: var(--text-secondary);
             background: var(--surface-raised);
-            padding: 4px 10px;
+            padding: 3px 9px;
             border-radius: 20px;
             border: 1px solid var(--border);
         }
@@ -391,43 +439,45 @@
         .matchup {
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 16px;
-            margin-bottom: 20px;
+            gap: 12px;
+            margin-bottom: 14px;
         }
 
         .team {
-            flex: 1;
             font-size: 15px;
             font-weight: 600;
             letter-spacing: -0.2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .team.home { text-align: right; }
-        .team.away { text-align: left; }
+        .team.home { text-align: right; flex: 1; }
+        .team.away { text-align: left; flex: 1; }
 
         .vs-divider {
             font-size: 10px;
             font-weight: 700;
             color: var(--text-faint);
-            padding: 5px 10px;
+            padding: 4px 8px;
             border: 1px solid var(--border);
             border-radius: var(--radius-xs);
             letter-spacing: 1px;
             text-transform: uppercase;
+            flex-shrink: 0;
         }
 
         /* Probability visualization */
-        .prob-section { margin-bottom: 18px; }
+        .prob-section { margin-bottom: 14px; }
 
         .prob-header {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
         .prob-label {
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 600;
             display: flex;
             align-items: center;
@@ -435,8 +485,8 @@
         }
 
         .prob-label .dot {
-            width: 6px;
-            height: 6px;
+            width: 5px;
+            height: 5px;
             border-radius: 50%;
             display: inline-block;
         }
@@ -450,15 +500,15 @@
 
         .prob-track {
             display: flex;
-            height: 8px;
-            border-radius: 4px;
+            height: 6px;
+            border-radius: 3px;
             overflow: hidden;
             background: rgba(255,255,255,0.03);
             gap: 2px;
         }
 
         .prob-fill {
-            border-radius: 4px;
+            border-radius: 3px;
             transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
@@ -470,21 +520,20 @@
         .pick-result {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 12px;
+            gap: 10px;
             flex-wrap: wrap;
         }
 
         .pick-info {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
 
         .market-tag {
             font-size: 10px;
             font-weight: 700;
-            padding: 5px 10px;
+            padding: 4px 9px;
             border-radius: var(--radius-xs);
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -508,54 +557,23 @@
             color: var(--text);
         }
 
-        .confidence-meter {
-            display: flex;
-            align-items: center;
-            gap: 8px;
+        /* Edge / Value badge */
+        .edge-badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 20px;
+            margin-left: auto;
         }
 
-        .conf-ring {
-            width: 32px;
-            height: 32px;
-            position: relative;
-        }
+        .edge-badge.positive { background: var(--green-soft); color: var(--green); }
+        .edge-badge.neutral { background: var(--yellow-soft); color: var(--yellow); }
 
-        .conf-ring svg {
-            width: 100%;
-            height: 100%;
-            transform: rotate(-90deg);
-        }
-
-        .conf-ring .track {
-            fill: none;
-            stroke: rgba(255,255,255,0.05);
-            stroke-width: 3;
-        }
-
-        .conf-ring .fill {
-            fill: none;
-            stroke-width: 3;
-            stroke-linecap: round;
-            transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .conf-ring .fill.high { stroke: var(--green); }
-        .conf-ring .fill.mid { stroke: var(--yellow); }
-        .conf-ring .fill.low { stroke: var(--orange); }
-
-        .conf-value {
-            font-size: 11px;
-            font-weight: 700;
-            color: var(--text-secondary);
-        }
-
-        /* Reasoning */
+        /* Reasoning - collapsible */
         .reasoning {
-            margin-top: 14px;
-            padding: 12px 14px;
-            background: rgba(79,143,255,0.03);
-            border-left: 2px solid rgba(79,143,255,0.3);
-            border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+            padding: 12px 20px 14px;
+            background: rgba(79,143,255,0.02);
+            border-top: 1px solid var(--border);
             font-size: 12px;
             color: var(--text-secondary);
             line-height: 1.7;
@@ -565,18 +583,6 @@
             color: var(--text);
             font-weight: 600;
         }
-
-        /* Edge / Value badge */
-        .edge-badge {
-            font-size: 10px;
-            font-weight: 600;
-            padding: 3px 8px;
-            border-radius: 20px;
-            margin-left: 6px;
-        }
-
-        .edge-badge.positive { background: var(--green-soft); color: var(--green); }
-        .edge-badge.neutral { background: var(--yellow-soft); color: var(--yellow); }
 
         /* ═══════════════════ LOGIN MODAL ═══════════════════ */
         .modal-overlay {
@@ -889,18 +895,17 @@
             .nav-controls { flex-wrap: wrap; }
             .date-nav { flex: 1; min-width: 0; }
             .date-nav input[type="date"] { flex: 1; min-width: 0; }
-            .picks-grid { grid-template-columns: 1fr; }
+            .card-top { flex-direction: column; }
+            .conf-sidebar { flex-direction: row; padding: 10px 16px; border-right: none; border-bottom: 1px solid var(--border); }
             .matchup { flex-direction: column; gap: 6px; }
             .team { text-align: center !important; }
-            .pick-result { flex-direction: column; align-items: flex-start; }
             .admin-actions { flex-direction: column; }
             .date-title { font-size: 18px; }
             .date-bar { flex-direction: column; align-items: flex-start; gap: 8px; }
         }
 
         @media (max-width: 520px) {
-            .picks-grid { grid-template-columns: 1fr; }
-            .pick-card { padding: 16px; }
+            .pick-card .card-body { padding: 14px 16px; }
         }
 
         /* Scrollbar */
@@ -1139,29 +1144,14 @@
         return pick.pick_type;
     }
 
-    function confRing(confidence) {
-        const pct = confidence * 100;
-        const r = 13;
-        const circ = 2 * Math.PI * r;
-        const offset = circ - (confidence * circ);
-        const cls = pct >= 65 ? 'high' : pct >= 50 ? 'mid' : 'low';
-        return `
-            <div class="confidence-meter">
-                <div class="conf-ring">
-                    <svg viewBox="0 0 32 32">
-                        <circle class="track" cx="16" cy="16" r="${r}"/>
-                        <circle class="fill ${cls}" cx="16" cy="16" r="${r}"
-                            stroke-dasharray="${circ}"
-                            stroke-dashoffset="${offset}"/>
-                    </svg>
-                </div>
-                <span class="conf-value">${pct.toFixed(0)}%</span>
-            </div>`;
-    }
-
     function formatOdds(val) {
         if (val == null || val === 0) return '-';
         return parseFloat(val).toFixed(2);
+    }
+
+    function confClass(confidence) {
+        const pct = confidence * 100;
+        return pct >= 65 ? 'high' : pct >= 50 ? 'mid' : 'low';
     }
 
     function createPickCard(pick) {
@@ -1173,6 +1163,8 @@
         const aP = (a * 100).toFixed(1);
         const isWin = pick.pick_type === 'STRAIGHT_WIN';
         const badgeClass = isWin ? 'win' : 'dc';
+        const cls = confClass(pick.confidence);
+        const pct = (pick.confidence * 100).toFixed(0);
 
         const edgeHtml = pick.edge != null && pick.edge > 0
             ? `<span class="edge-badge positive">+${(pick.edge * 100).toFixed(1)}% edge</span>`
@@ -1191,36 +1183,43 @@
                 </div>` : '';
 
         return `
-            <div class="pick-card">
-                <div class="card-header">
-                    <span class="league-badge">${pick.competition || ''}</span>
-                    <span class="kickoff">${pick.kick_off || ''}</span>
-                </div>
-                <div class="matchup">
-                    <span class="team home">${pick.home_team}</span>
-                    <span class="vs-divider">vs</span>
-                    <span class="team away">${pick.away_team}</span>
-                </div>
-                ${oddsHtml}
-                <div class="prob-section">
-                    <div class="prob-header">
-                        <span class="prob-label home"><span class="dot"></span> ${hP}%</span>
-                        <span class="prob-label draw"><span class="dot"></span> ${dP}%</span>
-                        <span class="prob-label away"><span class="dot"></span> ${aP}%</span>
+            <div class="pick-card conf-${cls}">
+                <div class="card-top">
+                    <div class="conf-sidebar">
+                        <span class="conf-pct ${cls}">${pct}%</span>
+                        <span class="conf-sub">conf</span>
                     </div>
-                    <div class="prob-track">
-                        <div class="prob-fill home" style="width:${hP}%"></div>
-                        <div class="prob-fill draw" style="width:${dP}%"></div>
-                        <div class="prob-fill away" style="width:${aP}%"></div>
+                    <div class="card-body">
+                        <div class="card-header">
+                            <span class="league-badge">${pick.competition || ''}</span>
+                            <span class="kickoff">${pick.kick_off || ''}</span>
+                        </div>
+                        <div class="matchup">
+                            <span class="team home">${pick.home_team}</span>
+                            <span class="vs-divider">vs</span>
+                            <span class="team away">${pick.away_team}</span>
+                        </div>
+                        ${oddsHtml}
+                        <div class="prob-section">
+                            <div class="prob-header">
+                                <span class="prob-label home"><span class="dot"></span> ${hP}%</span>
+                                <span class="prob-label draw"><span class="dot"></span> ${dP}%</span>
+                                <span class="prob-label away"><span class="dot"></span> ${aP}%</span>
+                            </div>
+                            <div class="prob-track">
+                                <div class="prob-fill home" style="width:${hP}%"></div>
+                                <div class="prob-fill draw" style="width:${dP}%"></div>
+                                <div class="prob-fill away" style="width:${aP}%"></div>
+                            </div>
+                        </div>
+                        <div class="pick-result">
+                            <div class="pick-info">
+                                <span class="market-tag ${badgeClass}">${formatMarket(pick)}</span>
+                                <span class="pick-label">${formatPickLabel(pick)}</span>
+                            </div>
+                            ${edgeHtml}
+                        </div>
                     </div>
-                </div>
-                <div class="pick-result">
-                    <div class="pick-info">
-                        <span class="market-tag ${badgeClass}">${formatMarket(pick)}</span>
-                        <span class="pick-label">${formatPickLabel(pick)}</span>
-                        ${edgeHtml}
-                    </div>
-                    ${confRing(pick.confidence)}
                 </div>
                 ${pick.reasoning ? `<div class="reasoning"><strong>Analysis:</strong> ${pick.reasoning}</div>` : ''}
             </div>`;
@@ -1262,7 +1261,8 @@
             document.getElementById('statusCount').textContent = data.count + ' tip' + (data.count !== 1 ? 's' : '');
             statusBar.classList.add('active');
 
-            grid.innerHTML = '<div class="picks-grid">' + data.picks.map(p => createPickCard(p)).join('') + '</div>';
+            const sorted = data.picks.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+            grid.innerHTML = '<div class="picks-grid">' + sorted.map(p => createPickCard(p)).join('') + '</div>';
         } catch (e) {
             const demo = {
                 competition: 'Premier League', kick_off: '15:00',

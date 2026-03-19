@@ -295,21 +295,44 @@ async def bulk_build_features(
 
     # 4. Compute features in batches (commit every 100 to avoid statement timeout)
     count = 0
+    errors = 0
     total = len(matches_to_build)
     batch_size = 100
+    batch = []
+
     for match in matches_to_build:
         try:
             feature = computer.build_feature(match)
-            session.add(feature)
-            count += 1
-            if count % batch_size == 0:
+            batch.append(feature)
+        except Exception:
+            errors += 1
+            logger.exception("[bulk] Failed to compute features for match %s", match.id)
+            continue
+
+        if len(batch) >= batch_size:
+            try:
+                session.add_all(batch)
                 await session.commit()
+                count += len(batch)
                 if status_callback:
                     await status_callback(f"Built {count}/{total} features...")
                 logger.info("[bulk] Committed batch %d/%d", count, total)
-        except Exception:
-            logger.exception("[bulk] Failed for match %s", match.id)
+            except Exception:
+                logger.exception("[bulk] Batch commit failed at %d", count)
+                await session.rollback()
+                errors += len(batch)
+            batch = []
 
-    await session.commit()
-    logger.info("[bulk] Built %d features", count)
+    # Final batch
+    if batch:
+        try:
+            session.add_all(batch)
+            await session.commit()
+            count += len(batch)
+        except Exception:
+            logger.exception("[bulk] Final batch commit failed")
+            await session.rollback()
+            errors += len(batch)
+
+    logger.info("[bulk] Built %d features (%d errors)", count, errors)
     return count

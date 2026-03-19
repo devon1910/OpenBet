@@ -70,16 +70,20 @@ async def _fetch_odds():
 
 async def _build_features():
     from src.database import async_session
-    from src.features.builder import build_features_for_match, build_features_for_upcoming
+    from src.features.bulk_builder import bulk_build_features
     from src.features.elo import process_all_matches
     from src.models.feature import MatchFeature
     from src.models.match import Match
     from sqlalchemy import select
 
     logger.info("[scheduler] Building features...")
+
+    # Elo in its own session
     async with async_session() as session:
         await process_all_matches(session)
 
+    # Historical features (finished matches without features)
+    async with async_session() as session:
         stmt = (
             select(Match)
             .where(Match.status == "FINISHED")
@@ -89,20 +93,19 @@ async def _build_features():
         )
         result = await session.execute(stmt)
         matches = result.scalars().all()
+        count = await bulk_build_features(session, matches)
 
-        count = 0
-        for match in matches:
-            try:
-                feature = await build_features_for_match(session, match)
-                session.add(feature)
-                count += 1
-                if count % 100 == 0:
-                    await session.commit()
-            except Exception:
-                logger.exception("[scheduler] Feature build failed for match %s", match.id)
-
-        await session.commit()
-        upcoming = await build_features_for_upcoming(session)
+    # Upcoming features
+    async with async_session() as session:
+        stmt = (
+            select(Match)
+            .where(Match.status.in_(["SCHEDULED", "TIMED"]))
+            .outerjoin(MatchFeature, MatchFeature.match_id == Match.id)
+            .where(MatchFeature.id.is_(None))
+        )
+        result = await session.execute(stmt)
+        upcoming_matches = result.scalars().all()
+        upcoming = await bulk_build_features(session, upcoming_matches)
 
     logger.info("[scheduler] Features built: %d historical + %d upcoming.", count, upcoming)
 

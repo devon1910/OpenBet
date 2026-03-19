@@ -145,6 +145,54 @@ async def _run_build_features():
         await _set_job_status("build-features", "error", str(e))
 
 
+async def _run_backfill_features():
+    """Delete ALL existing features and rebuild from scratch."""
+    from src.database import async_session
+    from src.features.builder import build_features_for_match, build_features_for_upcoming
+    from src.features.elo import process_all_matches
+    from src.models.feature import MatchFeature
+    from src.models.match import Match
+    from sqlalchemy import select, delete
+
+    await _set_job_status("backfill-features", "running", "Deleting old features...")
+    try:
+        async with async_session() as session:
+            deleted = (await session.execute(delete(MatchFeature))).rowcount
+            await session.commit()
+            await _set_job_status("backfill-features", "running", f"Deleted {deleted} old features. Rebuilding Elo...")
+
+            await process_all_matches(session)
+
+            stmt = (
+                select(Match)
+                .where(Match.status == "FINISHED")
+                .order_by(Match.match_date.asc())
+            )
+            result = await session.execute(stmt)
+            matches = result.scalars().all()
+
+            total = len(matches)
+            count = 0
+            for match in matches:
+                try:
+                    feature = await build_features_for_match(session, match)
+                    session.add(feature)
+                    count += 1
+                    if count % 50 == 0:
+                        await session.commit()
+                        await _set_job_status("backfill-features", "running", f"Rebuilt {count}/{total} features...")
+                except Exception:
+                    logger.exception("Backfill failed for match %s", match.id)
+
+            await session.commit()
+            upcoming = await build_features_for_upcoming(session)
+
+        await _set_job_status("backfill-features", "ok", f"Backfilled {count} historical + {upcoming} upcoming features.")
+    except Exception as e:
+        logger.exception("Backfill failed")
+        await _set_job_status("backfill-features", "error", str(e))
+
+
 async def _run_train():
     import time
     from src.database import async_session
@@ -229,6 +277,7 @@ _RUNNERS = {
     "sync-data": _run_sync,
     "fetch-odds": _run_fetch_odds,
     "build-features": _run_build_features,
+    "backfill-features": _run_backfill_features,
     "train": _run_train,
     "resolve-outcomes": _run_resolve,
     "backtest": _run_backtest,

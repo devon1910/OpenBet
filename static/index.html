@@ -1,52 +1,41 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenBet — AI Football Predictions</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+                    colors: {
+                        surface: 'rgba(255,255,255,0.03)',
+                        'surface-hover': 'rgba(255,255,255,0.06)',
+                        'surface-raised': 'rgba(255,255,255,0.05)',
+                        glass: 'rgba(255,255,255,0.04)',
+                        'glass-border': 'rgba(255,255,255,0.08)',
+                        dim: 'rgba(255,255,255,0.06)',
+                        'dim-hover': 'rgba(255,255,255,0.12)',
+                        accent: { DEFAULT: '#4f8fff', soft: 'rgba(79,143,255,0.08)', glow: 'rgba(79,143,255,0.15)' },
+                        ok: { DEFAULT: '#22c55e', soft: 'rgba(34,197,94,0.1)' },
+                        warn: { DEFAULT: '#eab308', soft: 'rgba(234,179,8,0.1)' },
+                        danger: { DEFAULT: '#ef4444', soft: 'rgba(239,68,68,0.1)' },
+                        muted: '#7c8494',
+                        faint: '#3d4452',
+                    },
+                },
+            },
+        }
+    </script>
     <style>
-        :root {
-            --bg: #050608;
-            --bg-gradient: linear-gradient(135deg, #050608 0%, #0a0f18 50%, #0d1117 100%);
-            --surface: rgba(255,255,255,0.03);
-            --surface-hover: rgba(255,255,255,0.06);
-            --surface-raised: rgba(255,255,255,0.05);
-            --glass: rgba(255,255,255,0.04);
-            --glass-border: rgba(255,255,255,0.08);
-            --border: rgba(255,255,255,0.06);
-            --border-hover: rgba(255,255,255,0.12);
-            --accent: #4f8fff;
-            --accent-glow: rgba(79,143,255,0.15);
-            --accent-soft: rgba(79,143,255,0.08);
-            --green: #22c55e;
-            --green-soft: rgba(34,197,94,0.1);
-            --yellow: #eab308;
-            --yellow-soft: rgba(234,179,8,0.1);
-            --red: #ef4444;
-            --red-soft: rgba(239,68,68,0.1);
-            --orange: #f97316;
-            --text: #f0f2f5;
-            --text-secondary: #7c8494;
-            --text-faint: #3d4452;
-            --radius: 14px;
-            --radius-sm: 8px;
-            --radius-xs: 6px;
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
         body {
-            background: var(--bg);
-            background-image: var(--bg-gradient);
-            color: var(--text);
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            line-height: 1.6;
-            min-height: 100vh;
-            -webkit-font-smoothing: antialiased;
+            background: #050608;
+            background-image: linear-gradient(135deg, #050608 0%, #0a0f18 50%, #0d1117 100%);
         }
-
-        /* Subtle grid pattern overlay */
         body::before {
             content: '';
             position: fixed;
@@ -55,949 +44,140 @@
                 radial-gradient(circle at 25% 25%, rgba(79,143,255,0.03) 0%, transparent 50%),
                 radial-gradient(circle at 75% 75%, rgba(34,197,94,0.02) 0%, transparent 50%);
             pointer-events: none;
-            z-index: 0;
         }
-
-        .app { position: relative; z-index: 1; }
-
-        /* ═══════════════════ HEADER ═══════════════════ */
-        .header {
-            position: sticky;
-            top: 0;
-            z-index: 50;
-            backdrop-filter: blur(20px) saturate(180%);
-            -webkit-backdrop-filter: blur(20px) saturate(180%);
-            background: rgba(5,6,8,0.8);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .header-inner {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 14px 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .brand-icon {
-            width: 36px;
-            height: 36px;
-            background: linear-gradient(135deg, var(--accent), #7c3aed);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 800;
-            font-size: 14px;
-            color: white;
-            letter-spacing: -0.5px;
-        }
-
-        .brand-text h1 {
-            font-size: 17px;
-            font-weight: 700;
-            letter-spacing: -0.3px;
-            line-height: 1.2;
-        }
-
-        .brand-text span {
-            font-size: 11px;
-            color: var(--text-secondary);
-            font-weight: 400;
-        }
-
-        .nav-controls {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .date-nav {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 2px;
-        }
-
-        .btn-icon {
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: transparent;
-            border: none;
-            color: var(--text-secondary);
-            font-size: 20px;
-            font-weight: 300;
-            cursor: pointer;
-            border-radius: var(--radius-xs);
-            transition: all 0.2s;
-            padding: 0;
-            line-height: 1;
-        }
-
-        .btn-icon:hover { background: var(--surface-hover); color: var(--text); }
-        .btn-icon:disabled { opacity: 0.25; cursor: not-allowed; }
-        .btn-icon:disabled:hover { background: transparent; color: var(--text-secondary); }
-
-        .btn-today {
-            background: transparent;
-            border: none;
-            color: var(--accent);
-            font-family: inherit;
-            font-size: 11px;
-            font-weight: 600;
-            cursor: pointer;
-            padding: 4px 8px;
-            border-radius: var(--radius-xs);
-            transition: all 0.2s;
-        }
-
-        .btn-today:hover { background: var(--accent-soft); }
-
-        input[type="date"] {
-            background: transparent;
-            border: none;
-            color: var(--text);
-            padding: 6px 8px;
-            font-family: inherit;
-            font-size: 13px;
-            font-weight: 500;
-            outline: none;
-            transition: all 0.2s;
-        }
-
         input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); cursor: pointer; }
-
-        .btn {
-            padding: 8px 16px;
-            border-radius: var(--radius-sm);
-            font-family: inherit;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            border: 1px solid var(--border);
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            white-space: nowrap;
-        }
-
-        .btn-primary {
-            background: var(--accent);
-            color: white;
-            border-color: var(--accent);
-            box-shadow: 0 2px 8px rgba(79,143,255,0.25);
-        }
-
-        .btn-primary:hover { box-shadow: 0 4px 16px rgba(79,143,255,0.35); transform: translateY(-1px); }
-
-        .btn-ghost {
-            background: transparent;
-            color: var(--text-secondary);
-        }
-
-        .btn-ghost:hover { color: var(--text); border-color: var(--border-hover); background: var(--surface); }
-
-        .btn-admin {
-            background: transparent;
-            color: var(--text-faint);
-            border: 1px solid transparent;
-            font-size: 12px;
-            padding: 6px 12px;
-        }
-
-        .btn-admin:hover { color: var(--text-secondary); border-color: var(--border); }
-        .btn-admin.authed { color: var(--accent); border-color: rgba(79,143,255,0.3); background: var(--accent-soft); }
-
-        /* ═══════════════════ DATE BAR ═══════════════════ */
-        .date-bar {
-            max-width: 1100px;
-            margin: 24px auto 0;
-            padding: 0 24px;
-            display: none;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .date-bar.active { display: flex; }
-
-        .date-title {
-            font-size: 22px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-        }
-
-        .picks-count {
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--accent);
-            background: var(--accent-soft);
-            border: 1px solid rgba(79,143,255,0.15);
-            padding: 4px 12px;
-            border-radius: 20px;
-        }
-
-        /* ═══════════════════ CONTENT ═══════════════════ */
-        .content {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 20px 24px 80px;
-        }
-
-        .message {
-            text-align: center;
-            padding: 80px 20px;
-            color: var(--text-secondary);
-            font-size: 14px;
-        }
-
-        .message .message-icon {
-            font-size: 48px;
-            margin-bottom: 16px;
-            opacity: 0.4;
-        }
-
-        .message .message-hint {
-            font-size: 12px;
-            color: var(--text-faint);
-            margin-top: 8px;
-        }
-
-        .message.error { color: var(--red); }
-
-        /* Odds row */
-        .odds-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 14px;
-            padding: 8px 12px;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-xs);
-        }
-
-        .odds-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 2px;
-        }
-
-        .odds-label {
-            font-size: 9px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--text-faint);
-        }
-
-        .odds-value {
-            font-size: 14px;
-            font-weight: 700;
-            color: var(--text);
-            font-variant-numeric: tabular-nums;
-        }
-
-        .spinner {
-            width: 28px;
-            height: 28px;
-            border: 2px solid var(--border);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 0.7s linear infinite;
-            margin: 0 auto 16px;
-        }
-
         @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* ═══════════════════ PICKS GRID ═══════════════════ */
-        .picks-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-            max-width: 680px;
-            margin: 0 auto;
-        }
-
-        .pick-card {
-            background: var(--glass);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--radius);
-            padding: 0;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .pick-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            bottom: 0;
-            width: 3px;
-            border-radius: 3px 0 0 3px;
-            transition: opacity 0.3s;
-        }
-
-        .pick-card.conf-high::before { background: var(--green); }
-        .pick-card.conf-mid::before { background: var(--yellow); }
-        .pick-card.conf-low::before { background: var(--orange); }
-
-        .pick-card:hover {
-            border-color: var(--border-hover);
-            background: var(--surface-hover);
-            transform: translateY(-1px);
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-        }
-
-        .card-top {
-            display: flex;
-            align-items: stretch;
-            min-height: 0;
-        }
-
-        /* Confidence sidebar */
-        .conf-sidebar {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 20px 16px;
-            min-width: 72px;
-            background: rgba(255,255,255,0.015);
-            border-right: 1px solid var(--border);
-            gap: 4px;
-        }
-
-        .conf-pct {
-            font-size: 22px;
-            font-weight: 800;
-            letter-spacing: -1px;
-            line-height: 1;
-        }
-
-        .conf-pct.high { color: var(--green); }
-        .conf-pct.mid { color: var(--yellow); }
-        .conf-pct.low { color: var(--orange); }
-
-        .conf-sub {
-            font-size: 9px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            color: var(--text-faint);
-        }
-
-        /* Card body */
-        .card-body {
-            flex: 1;
-            padding: 18px 20px;
-            min-width: 0;
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .league-badge {
-            font-size: 10px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            color: var(--text-secondary);
-            background: var(--surface-raised);
-            padding: 3px 9px;
-            border-radius: 20px;
-            border: 1px solid var(--border);
-        }
-
-        .kickoff {
-            font-size: 11px;
-            color: var(--text-faint);
-            font-weight: 500;
-        }
-
-        /* Teams */
-        .matchup {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 14px;
-        }
-
-        .team {
-            font-size: 15px;
-            font-weight: 600;
-            letter-spacing: -0.2px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .team.home { text-align: right; flex: 1; }
-        .team.away { text-align: left; flex: 1; }
-
-        .vs-divider {
-            font-size: 10px;
-            font-weight: 700;
-            color: var(--text-faint);
-            padding: 4px 8px;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-xs);
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            flex-shrink: 0;
-        }
-
-        /* Probability visualization */
-        .prob-section { margin-bottom: 14px; }
-
-        .prob-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 6px;
-        }
-
-        .prob-label {
-            font-size: 10px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .prob-label .dot {
-            width: 5px;
-            height: 5px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-
-        .prob-label.home .dot { background: var(--accent); }
-        .prob-label.draw .dot { background: var(--yellow); }
-        .prob-label.away .dot { background: var(--red); }
-        .prob-label.home { color: var(--accent); }
-        .prob-label.draw { color: var(--yellow); }
-        .prob-label.away { color: var(--red); }
-
-        .prob-track {
-            display: flex;
-            height: 6px;
-            border-radius: 3px;
-            overflow: hidden;
-            background: rgba(255,255,255,0.03);
-            gap: 2px;
-        }
-
-        .prob-fill {
-            border-radius: 3px;
-            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .prob-fill.home { background: linear-gradient(90deg, var(--accent), #7c9dff); }
-        .prob-fill.draw { background: linear-gradient(90deg, var(--yellow), #fcd34d); }
-        .prob-fill.away { background: linear-gradient(90deg, var(--red), #fca5a5); }
-
-        /* Pick result */
-        .pick-result {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .pick-info {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .market-tag {
-            font-size: 10px;
-            font-weight: 700;
-            padding: 4px 9px;
-            border-radius: var(--radius-xs);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .market-tag.win {
-            background: var(--green-soft);
-            color: var(--green);
-            border: 1px solid rgba(34,197,94,0.2);
-        }
-
-        .market-tag.dc {
-            background: var(--accent-soft);
-            color: var(--accent);
-            border: 1px solid rgba(79,143,255,0.2);
-        }
-
-        .pick-label {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text);
-        }
-
-        /* Edge / Value badge */
-        .edge-badge {
-            font-size: 10px;
-            font-weight: 600;
-            padding: 3px 8px;
-            border-radius: 20px;
-            margin-left: auto;
-        }
-
-        .edge-badge.positive { background: var(--green-soft); color: var(--green); }
-        .edge-badge.neutral { background: var(--yellow-soft); color: var(--yellow); }
-
-        /* Reasoning - collapsible */
-        .reasoning {
-            padding: 12px 20px 14px;
-            background: rgba(79,143,255,0.02);
-            border-top: 1px solid var(--border);
-            font-size: 12px;
-            color: var(--text-secondary);
-            line-height: 1.7;
-        }
-
-        .reasoning strong {
-            color: var(--text);
-            font-weight: 600;
-        }
-
-        /* ═══════════════════ LOGIN MODAL ═══════════════════ */
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.7);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            z-index: 100;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal-overlay.open { display: flex; }
-
-        .modal {
-            background: #0d1117;
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 36px;
-            width: 100%;
-            max-width: 380px;
-            margin: 16px;
-            box-shadow: 0 24px 64px rgba(0,0,0,0.5);
-        }
-
-        .modal-title {
-            font-size: 18px;
-            font-weight: 700;
-            margin-bottom: 4px;
-        }
-
-        .modal-sub {
-            font-size: 13px;
-            color: var(--text-secondary);
-            margin-bottom: 28px;
-        }
-
-        .form-group { margin-bottom: 16px; }
-
-        .form-group label {
-            display: block;
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            margin-bottom: 6px;
-        }
-
-        .form-group input {
-            width: 100%;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            color: var(--text);
-            padding: 10px 14px;
-            border-radius: var(--radius-sm);
-            font-family: inherit;
-            font-size: 13px;
-            outline: none;
-            transition: all 0.2s;
-        }
-
-        .form-group input:focus {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px var(--accent-soft);
-        }
-
-        .login-error {
-            font-size: 12px;
-            color: var(--red);
-            margin-bottom: 12px;
-            display: none;
-            background: var(--red-soft);
-            padding: 8px 12px;
-            border-radius: var(--radius-xs);
-        }
-
-        .modal-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 24px;
-        }
-
-        .btn-cancel {
-            background: transparent;
-            color: var(--text-secondary);
-            border: 1px solid var(--border);
-        }
-
-        .btn-cancel:hover { color: var(--text); border-color: var(--border-hover); }
-
-        /* ═══════════════════ ADMIN PANEL ═══════════════════ */
-        .admin-panel {
-            max-width: 1100px;
-            margin: 16px auto 0;
-            padding: 0 24px;
-            display: none;
-        }
-
-        .admin-panel.open { display: block; }
-
-        .admin-inner {
-            background: var(--glass);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--radius);
-            padding: 20px 24px;
-        }
-
-        .admin-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-        }
-
-        .admin-title {
-            font-size: 13px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            color: var(--text-secondary);
-        }
-
-        .btn-logout {
-            font-size: 11px;
-            padding: 4px 12px;
-            color: var(--red);
-            border-color: rgba(239,68,68,0.2);
-            background: var(--red-soft);
-        }
-
-        .btn-logout:hover { border-color: var(--red); }
-
-        .admin-stats {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-bottom: 16px;
-        }
-
-        .stat-chip {
-            font-size: 12px;
-            color: var(--text-secondary);
-            background: var(--surface);
-            border: 1px solid var(--border);
-            padding: 6px 12px;
-            border-radius: 20px;
-        }
-
-        .stat-chip strong {
-            color: var(--text);
-            font-weight: 700;
-        }
-
-        .admin-actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-bottom: 14px;
-        }
-
-        .admin-btn {
-            padding: 9px 16px;
-            border-radius: var(--radius-sm);
-            font-family: inherit;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            border: 1px solid var(--border);
-            background: var(--surface);
-            color: var(--text);
-            transition: all 0.2s;
-        }
-
-        .admin-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
-        .admin-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .admin-btn.running { border-color: var(--yellow); color: var(--yellow); background: var(--yellow-soft); animation: pulse 1.5s infinite; }
-
-        .admin-log {
-            font-size: 11px;
-            color: var(--text-secondary);
-            background: rgba(0,0,0,0.4);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 12px 14px;
-            max-height: 160px;
-            overflow-y: auto;
-            display: none;
-            white-space: pre-wrap;
-            font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-            line-height: 1.7;
-        }
-
-        .admin-log.active { display: block; }
-
-        /* Backtest results */
-        .backtest-results {
-            display: none;
-            margin-top: 14px;
-            background: rgba(0,0,0,0.3);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 18px;
-        }
-
-        .backtest-header {
-            font-weight: 700;
-            color: var(--accent);
-            margin-bottom: 12px;
-            font-size: 14px;
-        }
-
-        .backtest-stats, .backtest-breakdown {
-            display: flex;
-            gap: 14px;
-            flex-wrap: wrap;
-            margin-bottom: 10px;
-            font-size: 12px;
-        }
-
-        .backtest-stat { color: var(--text-secondary); }
-        .backtest-stat strong { color: var(--text); }
-        .backtest-days { margin-top: 12px; font-size: 12px; }
-
-        .backtest-day-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 6px;
-            margin-top: 8px;
-        }
-
-        .backtest-day {
-            display: flex;
-            justify-content: space-between;
-            padding: 6px 10px;
-            border-radius: var(--radius-xs);
-            font-size: 11px;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid var(--border);
-        }
-
-        .backtest-day.perfect { background: rgba(34,197,94,0.1); border-color: rgba(34,197,94,0.2); }
-        .backtest-day.good { background: rgba(79,143,255,0.08); border-color: rgba(79,143,255,0.15); }
-        .backtest-day.poor { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.15); }
-        .day-date { color: var(--text-secondary); }
-        .day-score { font-weight: 700; }
-        .day-profit { color: var(--text-secondary); }
-
-        /* ═══════════════════ PIPELINE FOOTER ═══════════════════ */
-        .pipeline-footer {
-            border-top: 1px solid var(--border);
-            margin-top: 48px;
-            padding: 16px 24px;
-            background: rgba(5,6,8,0.6);
-        }
-
-        .pipeline-footer-inner {
-            max-width: 1100px;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            gap: 24px;
-            flex-wrap: wrap;
-        }
-
-        .pipeline-label {
-            font-size: 10px;
-            color: var(--text-faint);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 700;
-            flex-shrink: 0;
-        }
-
-        .pipeline-items {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            flex: 1;
-        }
-
-        .pipeline-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 11px;
-            color: var(--text-secondary);
-        }
-
-        .pipeline-dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: var(--text-faint);
-            flex-shrink: 0;
-        }
-
-        .pipeline-dot.ok      { background: var(--green); box-shadow: 0 0 6px var(--green); }
-        .pipeline-dot.error   { background: var(--red); box-shadow: 0 0 6px var(--red); }
-        .pipeline-dot.running { background: var(--yellow); animation: pulse 1s infinite; }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50%      { opacity: 0.3; }
-        }
-
-        /* ═══════════════════ RESPONSIVE ═══════════════════ */
-        @media (max-width: 768px) {
-            .header-inner { flex-direction: column; align-items: stretch; gap: 12px; }
-            .nav-controls { flex-wrap: wrap; }
-            .date-nav { flex: 1; min-width: 0; }
-            .date-nav input[type="date"] { flex: 1; min-width: 0; }
-            .card-top { flex-direction: column; }
-            .conf-sidebar { flex-direction: row; padding: 10px 16px; border-right: none; border-bottom: 1px solid var(--border); }
-            .matchup { flex-direction: column; gap: 6px; }
-            .team { text-align: center !important; }
-            .admin-actions { flex-direction: column; }
-            .date-title { font-size: 18px; }
-            .date-bar { flex-direction: column; align-items: flex-start; gap: 8px; }
-        }
-
-        @media (max-width: 520px) {
-            .pick-card .card-body { padding: 14px 16px; }
-        }
-
-        /* Scrollbar */
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+        .animate-pulse-slow { animation: pulse 1.5s infinite; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--text-faint); border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+        ::-webkit-scrollbar-thumb { background: #3d4452; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #7c8494; }
+
+        /* Card shimmer on hover */
+        .pick-card { position: relative; overflow: hidden; }
+        .pick-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.02) 45%, rgba(255,255,255,0.04) 50%, rgba(255,255,255,0.02) 55%, transparent 60%);
+            transform: translateX(-100%);
+            transition: transform 0.6s ease;
+        }
+        .pick-card:hover::after { transform: translateX(100%); }
+
+        /* Confidence ring */
+        .conf-ring {
+            width: 56px; height: 56px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            position: relative;
+        }
+        .conf-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+        .conf-ring circle { fill: none; stroke-width: 3; stroke-linecap: round; }
+
+        /* Gradient text */
+        .gradient-text {
+            background: linear-gradient(135deg, #4f8fff, #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
     </style>
 </head>
-<body>
-<div class="app">
-    <header class="header">
-        <div class="header-inner">
-            <div class="brand">
-                <div class="brand-icon">OB</div>
-                <div class="brand-text">
-                    <h1>OpenBet</h1>
-                    <span>AI-Powered Match Predictions</span>
+<body class="text-gray-100 font-sans min-h-screen antialiased">
+<div class="relative z-[1]">
+
+    <!-- ═══════════════════ HEADER ═══════════════════ -->
+    <header class="sticky top-0 z-50 backdrop-blur-xl bg-[rgba(5,6,8,0.8)] border-b border-dim">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+            <!-- Brand -->
+            <div class="flex items-center gap-3 shrink-0">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-accent to-purple-600 flex items-center justify-center font-extrabold text-sm text-white tracking-tight">OB</div>
+                <div>
+                    <h1 class="text-[17px] font-bold tracking-tight leading-tight">OpenBet</h1>
+                    <span class="text-[11px] text-muted">AI-Powered Match Predictions</span>
                 </div>
             </div>
-            <div class="nav-controls">
-                <div class="date-nav">
-                    <button class="btn btn-icon" id="prevDay" onclick="changeDay(-1)" title="Previous day">&#8249;</button>
-                    <input type="date" id="matchDate">
-                    <button class="btn btn-icon" onclick="changeDay(1)" title="Next day">&#8250;</button>
-                    <button class="btn btn-today" onclick="goToday()">Today</button>
+
+            <!-- Controls -->
+            <div class="flex items-center gap-2 flex-wrap sm:ml-auto">
+                <!-- Date Nav -->
+                <div class="flex items-center gap-0.5 bg-surface border border-dim rounded-lg p-0.5">
+                    <button class="w-8 h-8 flex items-center justify-center text-muted hover:bg-surface-hover hover:text-white rounded-md transition text-xl font-light" id="prevDay" onclick="changeDay(-1)" title="Previous day">&#8249;</button>
+                    <input type="date" id="matchDate" class="bg-transparent border-none text-white px-2 py-1.5 text-[13px] font-medium outline-none min-w-0">
+                    <button class="w-8 h-8 flex items-center justify-center text-muted hover:bg-surface-hover hover:text-white rounded-md transition text-xl font-light" onclick="changeDay(1)" title="Next day">&#8250;</button>
+                    <button class="text-accent text-[11px] font-semibold px-2 py-1 rounded-md hover:bg-accent-soft transition" onclick="goToday()">Today</button>
                 </div>
-                <button class="btn btn-primary" onclick="fetchPicks()">Get Tips</button>
-                <button class="btn btn-ghost" onclick="fetchPicks(true)">Regenerate</button>
-                <button class="btn btn-admin" id="adminBtn" onclick="handleAdminBtn()">Admin</button>
+                <button class="px-4 py-2 rounded-lg text-[13px] font-medium bg-accent text-white shadow-[0_2px_8px_rgba(79,143,255,0.25)] hover:shadow-[0_4px_16px_rgba(79,143,255,0.35)] hover:-translate-y-px transition-all" onclick="fetchPicks()">Get Tips</button>
+                <button class="px-4 py-2 rounded-lg text-[13px] font-medium border border-dim text-muted hover:text-white hover:border-dim-hover hover:bg-surface transition-all" onclick="fetchPicks(true)">Regenerate</button>
+                <button class="px-3 py-1.5 rounded-lg text-[12px] text-faint border border-transparent hover:text-muted hover:border-dim transition-all" id="adminBtn" onclick="handleAdminBtn()">Admin</button>
             </div>
         </div>
     </header>
 
-    <div class="date-bar" id="statusBar">
-        <span class="date-title" id="statusTitle"></span>
-        <span class="picks-count" id="statusCount"></span>
+    <!-- ═══════════════════ DATE BAR ═══════════════════ -->
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 mt-6 hidden items-center justify-between" id="statusBar">
+        <span class="text-lg sm:text-xl font-bold tracking-tight" id="statusTitle"></span>
+        <span class="text-[12px] font-semibold text-accent bg-accent-soft border border-[rgba(79,143,255,0.15)] px-3 py-1 rounded-full" id="statusCount"></span>
     </div>
 
-    <!-- Login Modal -->
-    <div class="modal-overlay" id="loginModal" onclick="handleOverlayClick(event)">
-        <div class="modal">
-            <div class="modal-title">Admin Login</div>
-            <div class="modal-sub">Enter credentials to access the control panel.</div>
-            <div class="form-group">
-                <label for="loginUser">Username</label>
-                <input type="text" id="loginUser" autocomplete="username" placeholder="admin">
+    <!-- ═══════════════════ LOGIN MODAL ═══════════════════ -->
+    <div class="fixed inset-0 bg-black/70 backdrop-blur-md z-[100] hidden items-center justify-center" id="loginModal" onclick="handleOverlayClick(event)">
+        <div class="bg-[#0d1117] border border-dim rounded-2xl p-8 w-full max-w-sm mx-4 shadow-2xl">
+            <div class="text-lg font-bold mb-1">Admin Login</div>
+            <div class="text-[13px] text-muted mb-7">Enter credentials to access the control panel.</div>
+            <div class="mb-4">
+                <label class="block text-[12px] font-semibold text-muted mb-1.5" for="loginUser">Username</label>
+                <input type="text" id="loginUser" autocomplete="username" placeholder="admin"
+                    class="w-full bg-surface border border-dim text-white px-3.5 py-2.5 rounded-lg text-[13px] outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft transition">
             </div>
-            <div class="form-group">
-                <label for="loginPass">Password</label>
+            <div class="mb-4">
+                <label class="block text-[12px] font-semibold text-muted mb-1.5" for="loginPass">Password</label>
                 <input type="password" id="loginPass" autocomplete="current-password" placeholder="Enter password"
-                    onkeydown="if(event.key==='Enter') submitLogin()">
+                    onkeydown="if(event.key==='Enter') submitLogin()"
+                    class="w-full bg-surface border border-dim text-white px-3.5 py-2.5 rounded-lg text-[13px] outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft transition">
             </div>
-            <div class="login-error" id="loginError"></div>
-            <div class="modal-actions">
-                <button class="btn btn-primary" style="flex:1" onclick="submitLogin()" id="loginSubmitBtn">Sign In</button>
-                <button class="btn btn-cancel" onclick="closeLoginModal()">Cancel</button>
+            <div class="text-[12px] text-danger bg-danger-soft px-3 py-2 rounded-lg mb-3 hidden" id="loginError"></div>
+            <div class="flex gap-2.5 mt-6">
+                <button class="flex-1 px-4 py-2.5 rounded-lg text-[13px] font-medium bg-accent text-white hover:shadow-lg transition-all" onclick="submitLogin()" id="loginSubmitBtn">Sign In</button>
+                <button class="px-4 py-2.5 rounded-lg text-[13px] text-muted border border-dim hover:text-white hover:border-dim-hover transition-all" onclick="closeLoginModal()">Cancel</button>
             </div>
         </div>
     </div>
 
-    <div class="admin-panel" id="adminPanel">
-        <div class="admin-inner">
-            <div class="admin-header">
-                <div class="admin-title">Data Pipeline</div>
-                <button class="btn btn-logout" onclick="clearToken()">Logout</button>
+    <!-- ═══════════════════ ADMIN PANEL ═══════════════════ -->
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 mt-4 hidden" id="adminPanel">
+        <div class="bg-glass border border-glass-border rounded-2xl p-5 sm:p-6">
+            <div class="flex justify-between items-center mb-4">
+                <div class="text-[13px] font-bold uppercase tracking-wider text-muted">Data Pipeline</div>
+                <button class="text-[11px] px-3 py-1 text-danger border border-[rgba(239,68,68,0.2)] bg-danger-soft rounded-lg hover:border-danger transition" onclick="clearToken()">Logout</button>
             </div>
-            <div class="admin-stats" id="adminStats"></div>
-            <div class="admin-actions">
-                <button class="admin-btn" onclick="runAdmin('sync-data', this)">Sync Match Data</button>
-                <button class="admin-btn" onclick="runAdmin('fetch-odds', this)">Fetch Odds</button>
-                <button class="admin-btn" onclick="runAdmin('build-features', this)">Build Features</button>
-                <button class="admin-btn" onclick="runAdmin('backfill-features', this)" title="Delete all features and rebuild from scratch">Backfill Features</button>
-                <button class="admin-btn" onclick="runAdmin('train', this)">Train Model</button>
-                <button class="admin-btn" onclick="runAdmin('resolve-outcomes', this)">Resolve Outcomes</button>
-                <button class="admin-btn" onclick="runBacktest(this)">Run Backtest</button>
-                <button class="admin-btn" onclick="loadStatus()">Refresh</button>
+            <div class="flex gap-2.5 flex-wrap mb-4" id="adminStats"></div>
+            <div class="grid grid-cols-2 sm:flex gap-2 flex-wrap mb-4">
+                <button class="admin-btn px-4 py-2.5 rounded-lg text-[12px] font-semibold border border-dim bg-surface text-white hover:border-accent hover:text-accent hover:bg-accent-soft transition-all disabled:opacity-40 disabled:cursor-not-allowed" onclick="runAdmin('sync-data', this)">Sync Match Data</button>
+                <button class="admin-btn px-4 py-2.5 rounded-lg text-[12px] font-semibold border border-dim bg-surface text-white hover:border-accent hover:text-accent hover:bg-accent-soft transition-all disabled:opacity-40 disabled:cursor-not-allowed" onclick="runAdmin('fetch-odds', this)">Fetch Odds</button>
+                <button class="admin-btn px-4 py-2.5 rounded-lg text-[12px] font-semibold border border-dim bg-surface text-white hover:border-accent hover:text-accent hover:bg-accent-soft transition-all disabled:opacity-40 disabled:cursor-not-allowed" onclick="runAdmin('build-features', this)">Build Features</button>
+                <button class="admin-btn px-4 py-2.5 rounded-lg text-[12px] font-semibold border border-dim bg-surface text-white hover:border-accent hover:text-accent hover:bg-accent-soft transition-all disabled:opacity-40 disabled:cursor-not-allowed" onclick="runAdmin('backfill-features', this)" title="Delete all features and rebuild from scratch">Backfill Features</button>
+                <button class="admin-btn px-4 py-2.5 rounded-lg text-[12px] font-semibold border border-dim bg-surface text-white hover:border-accent hover:text-accent hover:bg-accent-soft transition-all disabled:opacity-40 disabled:cursor-not-allowed" onclick="runAdmin('train', this)">Train Model</button>
+                <button class="admin-btn px-4 py-2.5 rounded-lg text-[12px] font-semibold border border-dim bg-surface text-white hover:border-accent hover:text-accent hover:bg-accent-soft transition-all disabled:opacity-40 disabled:cursor-not-allowed" onclick="runAdmin('resolve-outcomes', this)">Resolve Outcomes</button>
+                <button class="admin-btn px-4 py-2.5 rounded-lg text-[12px] font-semibold border border-dim bg-surface text-white hover:border-accent hover:text-accent hover:bg-accent-soft transition-all disabled:opacity-40 disabled:cursor-not-allowed" onclick="runBacktest(this)">Run Backtest</button>
+                <button class="admin-btn px-4 py-2.5 rounded-lg text-[12px] font-semibold border border-dim bg-surface text-white hover:border-accent hover:text-accent hover:bg-accent-soft transition-all disabled:opacity-40 disabled:cursor-not-allowed" onclick="loadStatus()">Refresh</button>
             </div>
-            <div class="admin-log" id="adminLog"></div>
-            <div class="backtest-results" id="backtestResults"></div>
+            <div class="text-[11px] text-muted bg-black/40 border border-dim rounded-lg px-3.5 py-3 max-h-40 overflow-y-auto hidden whitespace-pre-wrap font-mono leading-relaxed" id="adminLog"></div>
+            <div class="hidden mt-4 bg-black/30 border border-dim rounded-2xl p-5" id="backtestResults"></div>
         </div>
     </div>
 
-    <div class="content">
-        <div id="picksGrid"></div>
-    </div>
+    <!-- ═══════════════════ PICKS ═══════════════════ -->
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 py-6 pb-24" id="picksGrid"></div>
 
-    <footer class="pipeline-footer">
-        <div class="pipeline-footer-inner">
-            <span class="pipeline-label">Engine Status</span>
-            <div class="pipeline-items" id="pipelineItems">
-                <span class="pipeline-item"><span class="pipeline-dot"></span>Loading...</span>
+    <!-- ═══════════════════ FOOTER ═══════════════════ -->
+    <footer class="border-t border-dim mt-12 py-4 px-4 sm:px-6 bg-[rgba(5,6,8,0.6)]">
+        <div class="max-w-5xl mx-auto flex items-center gap-6 flex-wrap">
+            <span class="text-[10px] text-faint uppercase tracking-widest font-bold shrink-0">Engine Status</span>
+            <div class="flex gap-5 flex-wrap flex-1" id="pipelineItems">
+                <span class="flex items-center gap-2 text-[11px] text-muted"><span class="w-1.5 h-1.5 rounded-full bg-faint"></span>Loading...</span>
             </div>
         </div>
     </footer>
@@ -1024,16 +204,11 @@
         fetchPicks();
     }
 
-    function goToday() {
-        dateInput.value = today;
-        updatePrevBtn();
-        fetchPicks();
-    }
+    function goToday() { dateInput.value = today; updatePrevBtn(); fetchPicks(); }
 
     function updatePrevBtn() {
         document.getElementById('prevDay').disabled = (dateInput.value <= today);
     }
-
     updatePrevBtn();
 
     // ═══════ AUTH ═══════
@@ -1044,32 +219,33 @@
     function setToken(t) {
         _token = t;
         sessionStorage.setItem('admin_token', t);
-        document.getElementById('adminBtn').classList.add('authed');
-        document.getElementById('adminBtn').textContent = 'Admin \u2713';
+        const btn = document.getElementById('adminBtn');
+        btn.classList.add('!text-accent', '!border-[rgba(79,143,255,0.3)]', '!bg-accent-soft');
+        btn.textContent = 'Admin \u2713';
     }
 
     function clearToken() {
         _token = null;
         sessionStorage.removeItem('admin_token');
-        document.getElementById('adminBtn').classList.remove('authed');
-        document.getElementById('adminBtn').textContent = 'Admin';
-        document.getElementById('adminPanel').classList.remove('open');
+        const btn = document.getElementById('adminBtn');
+        btn.classList.remove('!text-accent', '!border-[rgba(79,143,255,0.3)]', '!bg-accent-soft');
+        btn.textContent = 'Admin';
+        document.getElementById('adminPanel').classList.add('hidden');
     }
 
     if (_token) {
-        document.getElementById('adminBtn').classList.add('authed');
-        document.getElementById('adminBtn').textContent = 'Admin \u2713';
+        const btn = document.getElementById('adminBtn');
+        btn.classList.add('!text-accent', '!border-[rgba(79,143,255,0.3)]', '!bg-accent-soft');
+        btn.textContent = 'Admin \u2713';
     }
 
-    function authHeaders() {
-        return _token ? { 'Authorization': `Bearer ${_token}` } : {};
-    }
+    function authHeaders() { return _token ? { 'Authorization': `Bearer ${_token}` } : {}; }
 
     function handleAdminBtn() {
         if (isAuthed()) {
             const panel = document.getElementById('adminPanel');
-            panel.classList.toggle('open');
-            if (panel.classList.contains('open')) loadStatus();
+            panel.classList.toggle('hidden');
+            if (!panel.classList.contains('hidden')) loadStatus();
         } else {
             openLoginModal();
         }
@@ -1079,13 +255,17 @@
     function openLoginModal() {
         document.getElementById('loginUser').value = '';
         document.getElementById('loginPass').value = '';
-        document.getElementById('loginError').style.display = 'none';
-        document.getElementById('loginModal').classList.add('open');
+        document.getElementById('loginError').classList.add('hidden');
+        const modal = document.getElementById('loginModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
         setTimeout(() => document.getElementById('loginUser').focus(), 50);
     }
 
     function closeLoginModal() {
-        document.getElementById('loginModal').classList.remove('open');
+        const modal = document.getElementById('loginModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
     }
 
     function handleOverlayClick(e) {
@@ -1098,7 +278,7 @@
         const username = document.getElementById('loginUser').value.trim();
         const password = document.getElementById('loginPass').value;
 
-        errEl.style.display = 'none';
+        errEl.classList.add('hidden');
         btn.disabled = true;
         btn.textContent = 'Signing in...';
 
@@ -1112,17 +292,17 @@
 
             if (!res.ok) {
                 errEl.textContent = data.detail || 'Invalid credentials.';
-                errEl.style.display = 'block';
+                errEl.classList.remove('hidden');
                 return;
             }
 
             setToken(data.access_token);
             closeLoginModal();
-            document.getElementById('adminPanel').classList.add('open');
+            document.getElementById('adminPanel').classList.remove('hidden');
             loadStatus();
         } catch {
             errEl.textContent = 'Server unreachable. Try again.';
-            errEl.style.display = 'block';
+            errEl.classList.remove('hidden');
         } finally {
             btn.disabled = false;
             btn.textContent = 'Sign In';
@@ -1132,10 +312,10 @@
     // ═══════ PICK CARDS ═══════
     function formatPickLabel(pick) {
         const v = pick.pick_value;
-        if (v === 'HOME') return pick.home_team + ' to Win';
-        if (v === 'AWAY') return pick.away_team + ' to Win';
-        if (v === '1X') return pick.home_team + ' Win or Draw';
-        if (v === 'X2') return pick.away_team + ' Win or Draw';
+        if (v === 'HOME') return pick.home_team + ' Win';
+        if (v === 'AWAY') return pick.away_team + ' Win';
+        if (v === '1X') return pick.home_team + ' or Draw';
+        if (v === 'X2') return pick.away_team + ' or Draw';
         return v;
     }
 
@@ -1150,9 +330,17 @@
         return parseFloat(val).toFixed(2);
     }
 
-    function confClass(confidence) {
+    function confColor(confidence) {
         const pct = confidence * 100;
-        return pct >= 65 ? 'high' : pct >= 50 ? 'mid' : 'low';
+        if (pct >= 65) return { text: 'text-ok', stroke: '#22c55e', bg: 'bg-ok-soft', border: 'border-[rgba(34,197,94,0.15)]', label: 'HIGH' };
+        if (pct >= 50) return { text: 'text-warn', stroke: '#eab308', bg: 'bg-warn-soft', border: 'border-[rgba(234,179,8,0.15)]', label: 'MID' };
+        return { text: 'text-orange-400', stroke: '#f97316', bg: 'bg-[rgba(249,115,22,0.1)]', border: 'border-[rgba(249,115,22,0.15)]', label: 'LOW' };
+    }
+
+    function confRingSvg(pct, color) {
+        const r = 24, c = 2 * Math.PI * r;
+        const offset = c - (pct / 100) * c;
+        return `<svg viewBox="0 0 56 56"><circle cx="28" cy="28" r="${r}" stroke="rgba(255,255,255,0.06)" /><circle cx="28" cy="28" r="${r}" stroke="${color}" stroke-dasharray="${c}" stroke-dashoffset="${offset}" /></svg>`;
     }
 
     function createPickCard(pick) {
@@ -1163,67 +351,97 @@
         const dP = (d * 100).toFixed(1);
         const aP = (a * 100).toFixed(1);
         const isWin = pick.pick_type === 'STRAIGHT_WIN';
-        const badgeClass = isWin ? 'win' : 'dc';
-        const cls = confClass(pick.confidence);
         const pct = (pick.confidence * 100).toFixed(0);
+        const cc = confColor(pick.confidence);
 
         const edgeHtml = pick.edge != null && pick.edge > 0
-            ? `<span class="edge-badge positive">+${(pick.edge * 100).toFixed(1)}% edge</span>`
+            ? `<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-ok-soft text-ok">+${(pick.edge * 100).toFixed(1)}% edge</span>`
             : '';
 
         const hasOdds = pick.odds_decimal || pick.odds_home || pick.probabilities?.odds_home;
         const oddsHome = pick.odds_home ?? pick.probabilities?.odds_home;
         const oddsDraw = pick.odds_draw ?? pick.probabilities?.odds_draw;
         const oddsAway = pick.odds_away ?? pick.probabilities?.odds_away;
+
         const oddsHtml = hasOdds ? `
-                <div class="odds-row">
-                    <div class="odds-item"><span class="odds-label">Home</span><span class="odds-value">${formatOdds(oddsHome)}</span></div>
-                    <div class="odds-item"><span class="odds-label">Draw</span><span class="odds-value">${formatOdds(oddsDraw)}</span></div>
-                    <div class="odds-item"><span class="odds-label">Away</span><span class="odds-value">${formatOdds(oddsAway)}</span></div>
-                    ${pick.odds_decimal ? `<div class="odds-item"><span class="odds-label">Pick</span><span class="odds-value" style="color:var(--green)">${formatOdds(pick.odds_decimal)}</span></div>` : ''}
-                </div>` : '';
+            <div class="flex justify-between px-3 py-2 bg-surface border border-dim rounded-lg text-center mb-3">
+                <div class="flex flex-col items-center gap-0.5">
+                    <span class="text-[9px] font-semibold uppercase tracking-wider text-faint">Home</span>
+                    <span class="text-sm font-bold tabular-nums">${formatOdds(oddsHome)}</span>
+                </div>
+                <div class="flex flex-col items-center gap-0.5">
+                    <span class="text-[9px] font-semibold uppercase tracking-wider text-faint">Draw</span>
+                    <span class="text-sm font-bold tabular-nums">${formatOdds(oddsDraw)}</span>
+                </div>
+                <div class="flex flex-col items-center gap-0.5">
+                    <span class="text-[9px] font-semibold uppercase tracking-wider text-faint">Away</span>
+                    <span class="text-sm font-bold tabular-nums">${formatOdds(oddsAway)}</span>
+                </div>
+                ${pick.odds_decimal ? `<div class="flex flex-col items-center gap-0.5">
+                    <span class="text-[9px] font-semibold uppercase tracking-wider text-faint">Pick</span>
+                    <span class="text-sm font-bold tabular-nums text-ok">${formatOdds(pick.odds_decimal)}</span>
+                </div>` : ''}
+            </div>` : '';
 
         return `
-            <div class="pick-card conf-${cls}">
-                <div class="card-top">
-                    <div class="conf-sidebar">
-                        <span class="conf-pct ${cls}">${pct}%</span>
-                        <span class="conf-sub">conf</span>
+        <div class="pick-card group bg-glass border border-glass-border rounded-2xl transition-all duration-300 hover:border-dim-hover hover:bg-surface-hover hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+            <!-- Top section: confidence ring + match info -->
+            <div class="p-4 sm:p-5">
+                <div class="flex items-start gap-4">
+                    <!-- Confidence Ring -->
+                    <div class="shrink-0">
+                        <div class="conf-ring">
+                            ${confRingSvg(pct, cc.stroke)}
+                            <span class="text-[15px] font-extrabold ${cc.text} tracking-tight">${pct}</span>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <div class="card-header">
-                            <span class="league-badge">${pick.competition || ''}</span>
-                            <span class="kickoff">${pick.kick_off || ''}</span>
+
+                    <!-- Match Info -->
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between mb-2.5">
+                            <span class="text-[10px] font-semibold uppercase tracking-wider text-muted bg-surface-raised px-2.5 py-0.5 rounded-full border border-dim truncate">${pick.competition || ''}</span>
+                            <span class="text-[11px] text-faint font-medium shrink-0 ml-2">${pick.kick_off || ''}</span>
                         </div>
-                        <div class="matchup">
-                            <span class="team home">${pick.home_team}</span>
-                            <span class="vs-divider">vs</span>
-                            <span class="team away">${pick.away_team}</span>
+
+                        <!-- Teams -->
+                        <div class="mb-3">
+                            <div class="text-[15px] font-semibold tracking-tight truncate">${pick.home_team}</div>
+                            <div class="text-[11px] text-faint font-medium my-0.5">vs</div>
+                            <div class="text-[15px] font-semibold tracking-tight truncate">${pick.away_team}</div>
                         </div>
+
+                        <!-- Probability Bar -->
+                        <div class="mb-3">
+                            <div class="flex justify-between text-[10px] font-semibold mb-1.5">
+                                <span class="text-accent flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-accent inline-block"></span>${hP}%</span>
+                                <span class="text-warn flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-warn inline-block"></span>${dP}%</span>
+                                <span class="text-danger flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-danger inline-block"></span>${aP}%</span>
+                            </div>
+                            <div class="flex h-1.5 rounded-full overflow-hidden bg-[rgba(255,255,255,0.03)] gap-0.5">
+                                <div class="rounded-full bg-gradient-to-r from-accent to-blue-300" style="width:${hP}%"></div>
+                                <div class="rounded-full bg-gradient-to-r from-warn to-yellow-300" style="width:${dP}%"></div>
+                                <div class="rounded-full bg-gradient-to-r from-danger to-red-300" style="width:${aP}%"></div>
+                            </div>
+                        </div>
+
                         ${oddsHtml}
-                        <div class="prob-section">
-                            <div class="prob-header">
-                                <span class="prob-label home"><span class="dot"></span> ${hP}%</span>
-                                <span class="prob-label draw"><span class="dot"></span> ${dP}%</span>
-                                <span class="prob-label away"><span class="dot"></span> ${aP}%</span>
-                            </div>
-                            <div class="prob-track">
-                                <div class="prob-fill home" style="width:${hP}%"></div>
-                                <div class="prob-fill draw" style="width:${dP}%"></div>
-                                <div class="prob-fill away" style="width:${aP}%"></div>
-                            </div>
-                        </div>
-                        <div class="pick-result">
-                            <div class="pick-info">
-                                <span class="market-tag ${badgeClass}">${formatMarket(pick)}</span>
-                                <span class="pick-label">${formatPickLabel(pick)}</span>
-                            </div>
-                            ${edgeHtml}
+
+                        <!-- Pick -->
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wide ${isWin ? 'bg-ok-soft text-ok border border-[rgba(34,197,94,0.2)]' : 'bg-accent-soft text-accent border border-[rgba(79,143,255,0.2)]'}">${formatMarket(pick)}</span>
+                            <span class="text-[13px] font-semibold">${formatPickLabel(pick)}</span>
+                            <span class="ml-auto">${edgeHtml}</span>
                         </div>
                     </div>
                 </div>
-                ${pick.reasoning ? `<div class="reasoning"><strong>Analysis:</strong> ${pick.reasoning}</div>` : ''}
-            </div>`;
+            </div>
+
+            <!-- Reasoning -->
+            ${pick.reasoning ? `
+            <div class="px-4 sm:px-5 py-3 bg-[rgba(79,143,255,0.02)] border-t border-dim text-[12px] text-muted leading-relaxed">
+                <strong class="text-white font-semibold">Analysis:</strong> ${pick.reasoning}
+            </div>` : ''}
+        </div>`;
     }
 
     // ═══════ FETCH PICKS ═══════
@@ -1232,9 +450,13 @@
         if (!date) return;
         const grid = document.getElementById('picksGrid');
         const statusBar = document.getElementById('statusBar');
-        statusBar.classList.remove('active');
+        statusBar.classList.add('hidden');
+        statusBar.classList.remove('flex');
 
-        grid.innerHTML = '<div class="message"><div class="spinner"></div>Generating predictions...</div>';
+        grid.innerHTML = `<div class="text-center py-20 text-muted text-sm">
+            <div class="w-7 h-7 border-2 border-dim border-t-accent rounded-full mx-auto mb-4" style="animation:spin 0.7s linear infinite"></div>
+            Generating predictions...
+        </div>`;
 
         try {
             const url = force ? `${API_BASE}/picks/date/${date}?force=true` : `${API_BASE}/picks/date/${date}`;
@@ -1242,15 +464,15 @@
             const data = await res.json();
 
             if (data.error) {
-                grid.innerHTML = `<div class="message error">${data.error}</div>`;
+                grid.innerHTML = `<div class="text-center py-20 text-danger text-sm">${data.error}</div>`;
                 return;
             }
 
             if (!data.picks || data.picks.length === 0) {
-                grid.innerHTML = `<div class="message">
-                    <div class="message-icon">&#9917;</div>
-                    No matches scheduled for this date.
-                    <div class="message-hint">Try a different date using the arrows above</div>
+                grid.innerHTML = `<div class="text-center py-20 text-muted">
+                    <div class="text-5xl mb-4 opacity-40">&#9917;</div>
+                    <div class="text-sm">No matches scheduled for this date.</div>
+                    <div class="text-[12px] text-faint mt-2">Try a different date using the arrows above</div>
                 </div>`;
                 return;
             }
@@ -1260,10 +482,11 @@
             });
             document.getElementById('statusTitle').textContent = displayDate;
             document.getElementById('statusCount').textContent = data.count + ' tip' + (data.count !== 1 ? 's' : '');
-            statusBar.classList.add('active');
+            statusBar.classList.remove('hidden');
+            statusBar.classList.add('flex');
 
             const sorted = data.picks.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
-            grid.innerHTML = '<div class="picks-grid">' + sorted.map(p => createPickCard(p)).join('') + '</div>';
+            grid.innerHTML = '<div class="flex flex-col gap-4">' + sorted.map(p => createPickCard(p)).join('') + '</div>';
         } catch (e) {
             const demo = {
                 competition: 'Premier League', kick_off: '15:00',
@@ -1289,8 +512,8 @@
                 confidence: 0.70,
                 reasoning: 'Dortmund have a combined 70% probability of winning or drawing at home. Strong home advantage and superior Elo rating make them the safe pick.'
             };
-            grid.innerHTML = '<div class="message error" style="padding:20px 0 10px">Server not connected \u2014 showing preview</div>'
-                + '<div class="picks-grid">' + [demo, demo2, demo3].map(p => createPickCard(p)).join('') + '</div>';
+            grid.innerHTML = `<div class="text-center text-danger text-sm py-5">Server not connected — showing preview</div>
+                <div class="flex flex-col gap-4">${[demo, demo2, demo3].map(p => createPickCard(p)).join('')}</div>`;
         }
     }
 
@@ -1302,21 +525,21 @@
             if (res.status === 401) { clearToken(); return; }
             const d = await res.json();
             el.innerHTML = `
-                <span class="stat-chip"><strong>${d.total_matches || 0}</strong> matches</span>
-                <span class="stat-chip"><strong>${d.finished_matches || 0}</strong> finished</span>
-                <span class="stat-chip"><strong>${d.features_built || 0}</strong> features</span>
-                <span class="stat-chip"><strong>${d.with_odds || 0}</strong> with odds</span>
-                <span class="stat-chip">XGB: <strong>${d.xgb_model ? '\u2705' : '\u274c'}</strong></span>
-                <span class="stat-chip">Meta: <strong>${d.meta_learner ? '\u2705' : '\u274c'}</strong></span>
+                <span class="text-[12px] text-muted bg-surface border border-dim px-3 py-1.5 rounded-full"><strong class="text-white font-bold">${d.total_matches || 0}</strong> matches</span>
+                <span class="text-[12px] text-muted bg-surface border border-dim px-3 py-1.5 rounded-full"><strong class="text-white font-bold">${d.finished_matches || 0}</strong> finished</span>
+                <span class="text-[12px] text-muted bg-surface border border-dim px-3 py-1.5 rounded-full"><strong class="text-white font-bold">${d.features_built || 0}</strong> features</span>
+                <span class="text-[12px] text-muted bg-surface border border-dim px-3 py-1.5 rounded-full"><strong class="text-white font-bold">${d.with_odds || 0}</strong> with odds</span>
+                <span class="text-[12px] text-muted bg-surface border border-dim px-3 py-1.5 rounded-full">XGB: <strong class="text-white font-bold">${d.xgb_model ? '\u2705' : '\u274c'}</strong></span>
+                <span class="text-[12px] text-muted bg-surface border border-dim px-3 py-1.5 rounded-full">Meta: <strong class="text-white font-bold">${d.meta_learner ? '\u2705' : '\u274c'}</strong></span>
             `;
-        } catch { el.innerHTML = '<span class="stat-chip">Server offline</span>'; }
+        } catch { el.innerHTML = '<span class="text-[12px] text-muted bg-surface border border-dim px-3 py-1.5 rounded-full">Server offline</span>'; }
     }
 
     async function runAdmin(action, btn) {
         const log = document.getElementById('adminLog');
-        log.classList.add('active');
+        log.classList.remove('hidden');
         btn.disabled = true;
-        btn.classList.add('running');
+        btn.classList.add('!border-warn', '!text-warn', '!bg-warn-soft', 'animate-pulse-slow');
         const label = btn.textContent;
         btn.textContent = 'Running...';
         log.textContent += `\u25B6 ${action}...\n`;
@@ -1326,7 +549,7 @@
             if (res.status === 401) {
                 clearToken();
                 log.textContent += 'Session expired. Please log in again.\n';
-                btn.disabled = false; btn.classList.remove('running'); btn.textContent = label;
+                btn.disabled = false; btn.classList.remove('!border-warn', '!text-warn', '!bg-warn-soft', 'animate-pulse-slow'); btn.textContent = label;
                 openLoginModal();
                 return;
             }
@@ -1341,7 +564,7 @@
                             clearInterval(poll);
                             log.textContent += `\u2714 ${s.message}\n`;
                             if (s.metrics) log.textContent += `Metrics: ${JSON.stringify(s.metrics, null, 2)}\n`;
-                            btn.disabled = false; btn.classList.remove('running'); btn.textContent = label;
+                            btn.disabled = false; btn.classList.remove('!border-warn', '!text-warn', '!bg-warn-soft', 'animate-pulse-slow'); btn.textContent = label;
                             loadStatus();
                         }
                     } catch { /* keep polling */ }
@@ -1349,12 +572,12 @@
             } else {
                 log.textContent += `${d.message || JSON.stringify(d)}\n`;
                 if (d.metrics) log.textContent += `Metrics: ${JSON.stringify(d.metrics, null, 2)}\n`;
-                btn.disabled = false; btn.classList.remove('running'); btn.textContent = label;
+                btn.disabled = false; btn.classList.remove('!border-warn', '!text-warn', '!bg-warn-soft', 'animate-pulse-slow'); btn.textContent = label;
                 loadStatus();
             }
         } catch (e) {
             log.textContent += `\u2718 Error: ${e.message}\n`;
-            btn.disabled = false; btn.classList.remove('running'); btn.textContent = label;
+            btn.disabled = false; btn.classList.remove('!border-warn', '!text-warn', '!bg-warn-soft', 'animate-pulse-slow'); btn.textContent = label;
         }
 
         log.scrollTop = log.scrollHeight;
@@ -1363,9 +586,9 @@
     async function runBacktest(btn) {
         const log = document.getElementById('adminLog');
         const resultsDiv = document.getElementById('backtestResults');
-        log.classList.add('active');
+        log.classList.remove('hidden');
         btn.disabled = true;
-        btn.classList.add('running');
+        btn.classList.add('!border-warn', '!text-warn', '!bg-warn-soft', 'animate-pulse-slow');
         btn.textContent = 'Running...';
         log.textContent += '\u25B6 backtest (last 8 weeks)...\n';
 
@@ -1384,56 +607,56 @@
                             clearInterval(poll);
                             log.textContent += `\u2714 ${s.message}\n`;
                             if (s.results) renderBacktest(s.results, resultsDiv);
-                            btn.disabled = false; btn.classList.remove('running'); btn.textContent = 'Run Backtest';
+                            btn.disabled = false; btn.classList.remove('!border-warn', '!text-warn', '!bg-warn-soft', 'animate-pulse-slow'); btn.textContent = 'Run Backtest';
                         }
                     } catch { /* keep polling */ }
                 }, 3000);
             } else {
                 log.textContent += `${d.message || JSON.stringify(d)}\n`;
                 if (d.results) renderBacktest(d.results, resultsDiv);
-                btn.disabled = false; btn.classList.remove('running'); btn.textContent = 'Run Backtest';
+                btn.disabled = false; btn.classList.remove('!border-warn', '!text-warn', '!bg-warn-soft', 'animate-pulse-slow'); btn.textContent = 'Run Backtest';
             }
         } catch (e) {
             log.textContent += `\u2718 Error: ${e.message}\n`;
-            btn.disabled = false; btn.classList.remove('running'); btn.textContent = 'Run Backtest';
+            btn.disabled = false; btn.classList.remove('!border-warn', '!text-warn', '!bg-warn-soft', 'animate-pulse-slow'); btn.textContent = 'Run Backtest';
         }
 
         log.scrollTop = log.scrollHeight;
     }
 
     function renderBacktest(r, resultsDiv) {
-        let html = `<div class="backtest-header">Backtest Results (${r.start_date} to ${r.end_date})</div>`;
-        html += `<div class="backtest-stats">
-            <span class="backtest-stat"><strong>${r.total_picks}</strong> picks</span>
-            <span class="backtest-stat"><strong>${(r.accuracy * 100).toFixed(1)}%</strong> accuracy</span>
-            <span class="backtest-stat"><strong>${r.roi !== null ? r.roi.toFixed(1) + '%' : 'N/A'}</strong> ROI</span>
-            <span class="backtest-stat"><strong>${r.perfect_matchdays}/${r.total_matchdays}</strong> perfect days</span>
-            <span class="backtest-stat"><strong>${r.avg_edge !== null ? (r.avg_edge * 100).toFixed(1) + '%' : 'N/A'}</strong> avg edge</span>
+        let html = `<div class="font-bold text-accent mb-3 text-sm">Backtest Results (${r.start_date} to ${r.end_date})</div>`;
+        html += `<div class="flex gap-3 flex-wrap mb-3 text-[12px]">
+            <span class="text-muted"><strong class="text-white">${r.total_picks}</strong> picks</span>
+            <span class="text-muted"><strong class="text-white">${(r.accuracy * 100).toFixed(1)}%</strong> accuracy</span>
+            <span class="text-muted"><strong class="text-white">${r.roi !== null ? r.roi.toFixed(1) + '%' : 'N/A'}</strong> ROI</span>
+            <span class="text-muted"><strong class="text-white">${r.perfect_matchdays}/${r.total_matchdays}</strong> perfect days</span>
+            <span class="text-muted"><strong class="text-white">${r.avg_edge !== null ? (r.avg_edge * 100).toFixed(1) + '%' : 'N/A'}</strong> avg edge</span>
         </div>`;
 
         if (r.by_bet_type) {
-            html += '<div class="backtest-breakdown"><strong>By Bet Type:</strong>';
+            html += '<div class="flex gap-3 flex-wrap mb-3 text-[12px]"><strong class="text-white">By Bet Type:</strong>';
             for (const [type, stats] of Object.entries(r.by_bet_type)) {
-                html += ` <span class="backtest-stat">${type}: ${stats.correct}/${stats.total} (${(stats.accuracy * 100).toFixed(0)}%)</span>`;
+                html += ` <span class="text-muted">${type}: ${stats.correct}/${stats.total} (${(stats.accuracy * 100).toFixed(0)}%)</span>`;
             }
             html += '</div>';
         }
 
         if (r.matchday_results && r.matchday_results.length > 0) {
-            html += '<div class="backtest-days"><strong>Per Matchday:</strong><div class="backtest-day-grid">';
+            html += '<div class="mt-3 text-[12px]"><strong class="text-white">Per Matchday:</strong><div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5 mt-2">';
             for (const day of r.matchday_results) {
-                const cls = day.all_correct ? 'perfect' : (day.accuracy >= 0.6 ? 'good' : 'poor');
-                html += `<div class="backtest-day ${cls}">
-                    <span class="day-date">${day.date}</span>
-                    <span class="day-score">${day.correct_picks}/${day.total_picks}</span>
-                    <span class="day-profit">${day.profit >= 0 ? '+' : ''}${day.profit.toFixed(2)}</span>
+                const cls = day.all_correct ? 'bg-ok-soft border-[rgba(34,197,94,0.2)]' : (day.accuracy >= 0.6 ? 'bg-accent-soft border-[rgba(79,143,255,0.15)]' : 'bg-danger-soft border-[rgba(239,68,68,0.15)]');
+                html += `<div class="flex justify-between px-2.5 py-1.5 rounded-md text-[11px] border ${cls}">
+                    <span class="text-muted">${day.date}</span>
+                    <span class="font-bold">${day.correct_picks}/${day.total_picks}</span>
+                    <span class="text-muted">${day.profit >= 0 ? '+' : ''}${day.profit.toFixed(2)}</span>
                 </div>`;
             }
             html += '</div></div>';
         }
 
         resultsDiv.innerHTML = html;
-        resultsDiv.style.display = 'block';
+        resultsDiv.classList.remove('hidden');
     }
 
     // ═══════ PIPELINE STATUS ═══════
@@ -1446,12 +669,12 @@
 
             const fmt = (info, label, extra) => {
                 const s = info?.status;
-                const dotClass = s === 'ok' ? 'ok' : s === 'error' ? 'error' : s === 'running' ? 'running' : '';
+                const dotClass = s === 'ok' ? 'bg-ok shadow-[0_0_6px_#22c55e]' : s === 'error' ? 'bg-danger shadow-[0_0_6px_#ef4444]' : s === 'running' ? 'bg-warn animate-pulse-slow' : 'bg-faint';
                 const lastRun = info?.last_run ? `Last: ${info.last_run}` : 'Never run';
                 const extraText = extra ? ` \u00B7 ${extra}` : '';
-                return `<span class="pipeline-item">
-                    <span class="pipeline-dot ${dotClass}"></span>
-                    <span><strong style="color:var(--text)">${label}</strong> \u2014 ${lastRun}${extraText}</span>
+                return `<span class="flex items-center gap-2 text-[11px] text-muted">
+                    <span class="w-1.5 h-1.5 rounded-full ${dotClass} shrink-0"></span>
+                    <span><strong class="text-white">${label}</strong> \u2014 ${lastRun}${extraText}</span>
                 </span>`;
             };
 
@@ -1461,9 +684,9 @@
             el.innerHTML =
                 fmt(d.pipeline, 'Data Pipeline', nextRun) +
                 fmt(d.outcomes, 'Outcomes', '') +
-                fmt(d.retrain,  'Model', retrainAction);
+                fmt(d.retrain, 'Model', retrainAction);
         } catch {
-            el.innerHTML = '<span class="pipeline-item"><span class="pipeline-dot"></span>Status unavailable</span>';
+            el.innerHTML = '<span class="flex items-center gap-2 text-[11px] text-muted"><span class="w-1.5 h-1.5 rounded-full bg-faint"></span>Status unavailable</span>';
         }
     }
 

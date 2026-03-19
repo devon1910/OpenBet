@@ -663,7 +663,7 @@
         let html = `<div class="font-bold text-accent mb-3 text-sm">Backtest Results (${r.start_date} to ${r.end_date})</div>`;
         html += `<div class="flex gap-3 flex-wrap mb-3 text-[12px]">
             <span class="text-muted"><strong class="text-white">${r.total_picks}</strong> picks</span>
-            <span class="text-muted"><strong class="text-white">${(r.accuracy * 100).toFixed(1)}%</strong> accuracy</span>
+            <span class="text-muted"><strong class="text-white">${r.accuracy != null ? (r.accuracy * 100).toFixed(1) + '%' : 'N/A'}</strong> accuracy</span>
             <span class="text-muted"><strong class="text-white">${r.roi !== null ? r.roi.toFixed(1) + '%' : 'N/A'}</strong> ROI</span>
             <span class="text-muted"><strong class="text-white">${r.perfect_matchdays}/${r.total_matchdays}</strong> perfect days</span>
             <span class="text-muted"><strong class="text-white">${r.avg_edge !== null ? (r.avg_edge * 100).toFixed(1) + '%' : 'N/A'}</strong> avg edge</span>
@@ -672,7 +672,7 @@
         if (r.by_bet_type) {
             html += '<div class="flex gap-3 flex-wrap mb-3 text-[12px]"><strong class="text-white">By Bet Type:</strong>';
             for (const [type, stats] of Object.entries(r.by_bet_type)) {
-                html += ` <span class="text-muted">${type}: ${stats.correct}/${stats.total} (${(stats.accuracy * 100).toFixed(0)}%)</span>`;
+                html += ` <span class="text-muted">${type}: ${stats.correct || 0}/${stats.total || 0} (${stats.accuracy != null ? (stats.accuracy * 100).toFixed(0) + '%' : 'N/A'})</span>`;
             }
             html += '</div>';
         }
@@ -684,7 +684,7 @@
                 html += `<div class="flex justify-between px-2.5 py-1.5 rounded-md text-[11px] border ${cls}">
                     <span class="text-muted">${day.date}</span>
                     <span class="font-bold">${day.correct_picks}/${day.total_picks}</span>
-                    <span class="text-muted">${day.profit >= 0 ? '+' : ''}${day.profit.toFixed(2)}</span>
+                    <span class="text-muted">${(day.profit || 0) >= 0 ? '+' : ''}${(day.profit || 0).toFixed(2)}</span>
                 </div>`;
             }
             html += '</div></div>';
@@ -748,43 +748,52 @@
     }
 
     function renderPaperTrading(d) {
-        const profitColor = d.total_profit >= 0 ? 'text-ok' : 'text-danger';
-        const roiColor = (d.roi || 0) >= 0 ? 'text-ok' : 'text-danger';
+        const profit = d.total_profit || 0;
+        const bankroll = d.current_bankroll || d.starting_bankroll || 100;
+        const roi = d.roi;
+        const accuracy = d.accuracy;
+        const wins = d.wins || 0;
+        const losses = d.losses || 0;
+        const pending = d.pending_picks || 0;
+        const streak = d.streak || { current: '—', best_win: 0, worst_loss: 0 };
+        const profitColor = profit >= 0 ? 'text-ok' : 'text-danger';
+        const roiColor = (roi || 0) >= 0 ? 'text-ok' : 'text-danger';
+        const streakCur = streak.current || '—';
 
         // Summary cards
         document.getElementById('ptSummary').innerHTML = `
             <div class="bg-surface border border-dim rounded-xl px-4 py-3 text-center">
                 <div class="text-[10px] font-semibold uppercase tracking-wider text-faint mb-1">Bankroll</div>
-                <div class="text-xl font-bold ${profitColor}">${d.current_bankroll.toFixed(1)}</div>
-                <div class="text-[10px] text-muted">Started at ${d.starting_bankroll}</div>
+                <div class="text-xl font-bold ${profitColor}">${bankroll.toFixed(1)}</div>
+                <div class="text-[10px] text-muted">Started at ${d.starting_bankroll || 100}</div>
             </div>
             <div class="bg-surface border border-dim rounded-xl px-4 py-3 text-center">
                 <div class="text-[10px] font-semibold uppercase tracking-wider text-faint mb-1">ROI</div>
-                <div class="text-xl font-bold ${roiColor}">${d.roi != null ? d.roi.toFixed(1) + '%' : 'N/A'}</div>
-                <div class="text-[10px] text-muted">P&L: ${d.total_profit >= 0 ? '+' : ''}${d.total_profit.toFixed(2)}u</div>
+                <div class="text-xl font-bold ${roiColor}">${roi != null ? roi.toFixed(1) + '%' : 'N/A'}</div>
+                <div class="text-[10px] text-muted">P&L: ${profit >= 0 ? '+' : ''}${profit.toFixed(2)}u</div>
             </div>
             <div class="bg-surface border border-dim rounded-xl px-4 py-3 text-center">
                 <div class="text-[10px] font-semibold uppercase tracking-wider text-faint mb-1">Win Rate</div>
-                <div class="text-xl font-bold text-white">${d.accuracy != null ? (d.accuracy * 100).toFixed(1) + '%' : 'N/A'}</div>
-                <div class="text-[10px] text-muted">${d.wins}W / ${d.losses}L${d.pending_picks ? ` / ${d.pending_picks} pending` : ''}</div>
+                <div class="text-xl font-bold text-white">${accuracy != null ? (accuracy * 100).toFixed(1) + '%' : 'N/A'}</div>
+                <div class="text-[10px] text-muted">${wins}W / ${losses}L${pending ? ` / ${pending} pending` : ''}</div>
             </div>
             <div class="bg-surface border border-dim rounded-xl px-4 py-3 text-center">
                 <div class="text-[10px] font-semibold uppercase tracking-wider text-faint mb-1">Streak</div>
-                <div class="text-xl font-bold ${d.streak.current.startsWith('W') ? 'text-ok' : d.streak.current.startsWith('L') ? 'text-danger' : 'text-muted'}">${d.streak.current}</div>
-                <div class="text-[10px] text-muted">Best W${d.streak.best_win} / Worst L${d.streak.worst_loss}</div>
+                <div class="text-xl font-bold ${streakCur.startsWith('W') ? 'text-ok' : streakCur.startsWith('L') ? 'text-danger' : 'text-muted'}">${streakCur}</div>
+                <div class="text-[10px] text-muted">Best W${streak.best_win || 0} / Worst L${streak.worst_loss || 0}</div>
             </div>
         `;
 
         // Breakdown
         let breakdownHtml = '';
-        for (const [type, stats] of Object.entries(d.by_type)) {
+        for (const [type, stats] of Object.entries(d.by_type || {})) {
             const label = type === 'STRAIGHT_WIN' ? 'Straight Win' : 'Double Chance';
             breakdownHtml += `
                 <div class="bg-surface border border-dim rounded-xl px-4 py-3">
                     <div class="text-[11px] font-semibold uppercase tracking-wider text-muted mb-2">${label}</div>
                     <div class="flex justify-between text-[12px]">
                         <span class="text-muted">Record</span>
-                        <span class="font-bold">${stats.wins}/${stats.total} (${(stats.accuracy * 100).toFixed(0)}%)</span>
+                        <span class="font-bold">${stats.wins || 0}/${stats.total || 0} (${((stats.accuracy || 0) * 100).toFixed(0)}%)</span>
                     </div>
                     <div class="flex justify-between text-[12px] mt-1">
                         <span class="text-muted">ROI</span>
@@ -802,15 +811,17 @@
         if (d.recent_results && d.recent_results.length > 0) {
             document.getElementById('ptResults').innerHTML = d.recent_results.slice().reverse().map(r => {
                 const isWin = r.outcome === 'WIN';
-                const cls = isWin ? 'border-[rgba(34,197,94,0.15)] bg-ok-soft' : 'border-[rgba(239,68,68,0.15)] bg-danger-soft';
-                const icon = isWin ? '<span class="text-ok font-bold">W</span>' : '<span class="text-danger font-bold">L</span>';
-                const profitText = r.profit >= 0 ? `<span class="text-ok">+${r.profit.toFixed(2)}</span>` : `<span class="text-danger">${r.profit.toFixed(2)}</span>`;
+                const isVoid = r.outcome === 'VOID';
+                const cls = isWin ? 'border-[rgba(34,197,94,0.15)] bg-ok-soft' : isVoid ? 'border-dim bg-surface' : 'border-[rgba(239,68,68,0.15)] bg-danger-soft';
+                const icon = isWin ? '<span class="text-ok font-bold">W</span>' : isVoid ? '<span class="text-muted font-bold">V</span>' : '<span class="text-danger font-bold">L</span>';
+                const rProfit = r.profit || 0;
+                const profitText = rProfit >= 0 ? `<span class="text-ok">+${rProfit.toFixed(2)}</span>` : `<span class="text-danger">${rProfit.toFixed(2)}</span>`;
                 const label = r.pick_type === 'STRAIGHT_WIN' ? '1X2' : 'DC';
                 return `<div class="flex items-center justify-between px-3 py-2 rounded-lg border ${cls} text-[12px]">
                     <span class="w-6">${icon}</span>
-                    <span class="text-muted flex-1 mx-2">${r.date}</span>
+                    <span class="text-muted flex-1 mx-2">${r.date || ''}</span>
                     <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-surface border border-dim text-muted mr-2">${label}</span>
-                    <span class="font-medium mr-2">${r.pick_value}</span>
+                    <span class="font-medium mr-2">${r.pick_value || ''}</span>
                     <span class="text-muted mr-2">${r.odds ? '@' + r.odds.toFixed(2) : ''}</span>
                     <span class="font-bold w-14 text-right">${profitText}</span>
                 </div>`;
@@ -852,9 +863,9 @@
 
         // X-axis labels (first, middle, last)
         const xIndices = [0, Math.floor(curve.length / 2), curve.length - 1];
-        const xLabels = xIndices.map(i => {
+        const xLabels = [...new Set(xIndices)].map(i => {
             const p = points[i];
-            const label = curve[i].date.slice(5); // MM-DD
+            const label = (curve[i].date || '').slice(5); // MM-DD
             return `<text x="${p.x}" y="${h - 5}" text-anchor="middle" fill="#7c8494" font-size="9">${label}</text>`;
         }).join('');
 

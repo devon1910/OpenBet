@@ -120,12 +120,58 @@
             gap: 10px;
         }
 
-        input[type="date"] {
+        .date-nav {
+            display: flex;
+            align-items: center;
+            gap: 4px;
             background: var(--surface);
             border: 1px solid var(--border);
-            color: var(--text);
-            padding: 8px 14px;
             border-radius: var(--radius-sm);
+            padding: 2px;
+        }
+
+        .btn-icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 20px;
+            font-weight: 300;
+            cursor: pointer;
+            border-radius: var(--radius-xs);
+            transition: all 0.2s;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .btn-icon:hover { background: var(--surface-hover); color: var(--text); }
+        .btn-icon:disabled { opacity: 0.25; cursor: not-allowed; }
+        .btn-icon:disabled:hover { background: transparent; color: var(--text-secondary); }
+
+        .btn-today {
+            background: transparent;
+            border: none;
+            color: var(--accent);
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: var(--radius-xs);
+            transition: all 0.2s;
+        }
+
+        .btn-today:hover { background: var(--accent-soft); }
+
+        input[type="date"] {
+            background: transparent;
+            border: none;
+            color: var(--text);
+            padding: 6px 8px;
             font-family: inherit;
             font-size: 13px;
             font-weight: 500;
@@ -133,7 +179,6 @@
             transition: all 0.2s;
         }
 
-        input[type="date"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
         input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); cursor: pointer; }
 
         .btn {
@@ -220,7 +265,52 @@
             font-size: 14px;
         }
 
+        .message .message-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.4;
+        }
+
+        .message .message-hint {
+            font-size: 12px;
+            color: var(--text-faint);
+            margin-top: 8px;
+        }
+
         .message.error { color: var(--red); }
+
+        /* Odds row */
+        .odds-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 14px;
+            padding: 8px 12px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xs);
+        }
+
+        .odds-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .odds-label {
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-faint);
+        }
+
+        .odds-value {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text);
+            font-variant-numeric: tabular-nums;
+        }
 
         .spinner {
             width: 28px;
@@ -797,6 +887,8 @@
         @media (max-width: 768px) {
             .header-inner { flex-direction: column; align-items: stretch; gap: 12px; }
             .nav-controls { flex-wrap: wrap; }
+            .date-nav { flex: 1; min-width: 0; }
+            .date-nav input[type="date"] { flex: 1; min-width: 0; }
             .picks-grid { grid-template-columns: 1fr; }
             .matchup { flex-direction: column; gap: 6px; }
             .team { text-align: center !important; }
@@ -830,7 +922,12 @@
                 </div>
             </div>
             <div class="nav-controls">
-                <input type="date" id="matchDate">
+                <div class="date-nav">
+                    <button class="btn btn-icon" id="prevDay" onclick="changeDay(-1)" title="Previous day">&#8249;</button>
+                    <input type="date" id="matchDate">
+                    <button class="btn btn-icon" onclick="changeDay(1)" title="Next day">&#8250;</button>
+                    <button class="btn btn-today" onclick="goToday()">Today</button>
+                </div>
                 <button class="btn btn-primary" onclick="fetchPicks()">Get Tips</button>
                 <button class="btn btn-ghost" onclick="fetchPicks(true)">Regenerate</button>
                 <button class="btn btn-admin" id="adminBtn" onclick="handleAdminBtn()">Admin</button>
@@ -907,7 +1004,31 @@
         : '';
 
     const dateInput = document.getElementById('matchDate');
-    dateInput.value = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0];
+    dateInput.value = today;
+    dateInput.min = today;
+
+    function changeDay(delta) {
+        const d = new Date(dateInput.value + 'T12:00:00');
+        d.setDate(d.getDate() + delta);
+        const newDate = d.toISOString().split('T')[0];
+        if (newDate < today) return;
+        dateInput.value = newDate;
+        updatePrevBtn();
+        fetchPicks();
+    }
+
+    function goToday() {
+        dateInput.value = today;
+        updatePrevBtn();
+        fetchPicks();
+    }
+
+    function updatePrevBtn() {
+        document.getElementById('prevDay').disabled = (dateInput.value <= today);
+    }
+
+    updatePrevBtn();
 
     // ═══════ AUTH ═══════
     let _token = sessionStorage.getItem('admin_token');
@@ -1038,6 +1159,11 @@
             </div>`;
     }
 
+    function formatOdds(val) {
+        if (val == null || val === 0) return '-';
+        return parseFloat(val).toFixed(2);
+    }
+
     function createPickCard(pick) {
         const h = pick.probabilities?.home_win ?? 0;
         const d = pick.probabilities?.draw ?? 0;
@@ -1052,6 +1178,18 @@
             ? `<span class="edge-badge positive">+${(pick.edge * 100).toFixed(1)}% edge</span>`
             : '';
 
+        const hasOdds = pick.odds_decimal || pick.odds_home || pick.probabilities?.odds_home;
+        const oddsHome = pick.odds_home ?? pick.probabilities?.odds_home;
+        const oddsDraw = pick.odds_draw ?? pick.probabilities?.odds_draw;
+        const oddsAway = pick.odds_away ?? pick.probabilities?.odds_away;
+        const oddsHtml = hasOdds ? `
+                <div class="odds-row">
+                    <div class="odds-item"><span class="odds-label">Home</span><span class="odds-value">${formatOdds(oddsHome)}</span></div>
+                    <div class="odds-item"><span class="odds-label">Draw</span><span class="odds-value">${formatOdds(oddsDraw)}</span></div>
+                    <div class="odds-item"><span class="odds-label">Away</span><span class="odds-value">${formatOdds(oddsAway)}</span></div>
+                    ${pick.odds_decimal ? `<div class="odds-item"><span class="odds-label">Pick</span><span class="odds-value" style="color:var(--green)">${formatOdds(pick.odds_decimal)}</span></div>` : ''}
+                </div>` : '';
+
         return `
             <div class="pick-card">
                 <div class="card-header">
@@ -1063,6 +1201,7 @@
                     <span class="vs-divider">vs</span>
                     <span class="team away">${pick.away_team}</span>
                 </div>
+                ${oddsHtml}
                 <div class="prob-section">
                     <div class="prob-header">
                         <span class="prob-label home"><span class="dot"></span> ${hP}%</span>
@@ -1108,7 +1247,11 @@
             }
 
             if (!data.picks || data.picks.length === 0) {
-                grid.innerHTML = '<div class="message">No league matches scheduled for this date.</div>';
+                grid.innerHTML = `<div class="message">
+                    <div class="message-icon">&#9917;</div>
+                    No matches scheduled for this date.
+                    <div class="message-hint">Try a different date using the arrows above</div>
+                </div>`;
                 return;
             }
 
@@ -1325,7 +1468,7 @@
 
     // ═══════ INIT ═══════
     window.addEventListener('DOMContentLoaded', () => { fetchPicks(); loadPipelineStatus(); });
-    dateInput.addEventListener('change', () => fetchPicks());
+    dateInput.addEventListener('change', () => { updatePrevBtn(); fetchPicks(); });
     setInterval(loadPipelineStatus, 60_000);
 </script>
 </body>

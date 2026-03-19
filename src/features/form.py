@@ -17,8 +17,12 @@ async def compute_form(
     before_match_id: int,
     n_matches: int = 6,
     ref_date=None,
+    venue_filter: str = None,
 ) -> float:
     """Compute weighted form score for a team from their last N finished matches.
+
+    Args:
+        venue_filter: None = all matches, "home" = home only, "away" = away only
 
     Returns a score in [0, 3] where 3 = all wins, 0 = all losses.
     """
@@ -28,14 +32,21 @@ async def compute_form(
         )).scalar_one()
         ref_date = ref_match.match_date
 
-    # Fetch last N finished matches for this team
+    # Fetch last N finished matches for this team, optionally filtered by venue
+    if venue_filter == "home":
+        venue_cond = Match.home_team_id == team_id
+    elif venue_filter == "away":
+        venue_cond = Match.away_team_id == team_id
+    else:
+        venue_cond = or_(
+            Match.home_team_id == team_id,
+            Match.away_team_id == team_id,
+        )
+
     stmt = (
         select(Match)
         .where(
-            or_(
-                Match.home_team_id == team_id,
-                Match.away_team_id == team_id,
-            ),
+            venue_cond,
             Match.status == "FINISHED",
             Match.match_date < ref_date,
         )

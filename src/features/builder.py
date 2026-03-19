@@ -28,9 +28,11 @@ async def build_features_for_match(
     comp_id = match.competition_id
     ref_date = match.match_date
 
-    # Form
+    # Form (overall + venue-specific)
     home_form = await compute_form(session, home_id, match.id, ref_date=ref_date)
     away_form = await compute_form(session, away_id, match.id, ref_date=ref_date)
+    home_form_home = await compute_form(session, home_id, match.id, ref_date=ref_date, venue_filter="home")
+    away_form_away = await compute_form(session, away_id, match.id, ref_date=ref_date, venue_filter="away")
 
     # Strength
     home_str = await compute_strength(session, home_id, comp_id)
@@ -64,6 +66,8 @@ async def build_features_for_match(
         match_id=match.id,
         home_form=home_form,
         away_form=away_form,
+        home_form_home=home_form_home,
+        away_form_away=away_form_away,
         home_attack_strength=home_str["attack_strength"],
         home_defense_strength=home_str["defense_strength"],
         away_attack_strength=away_str["attack_strength"],

@@ -135,9 +135,15 @@ def ensemble_predict(
     # Odds implied probabilities (if available in features)
     odds_probs = None
     if all(col in features_df.columns for col in ["odds_home", "odds_draw", "odds_away"]):
-        odds_cols = features_df[["odds_home", "odds_draw", "odds_away"]].fillna(0).values
-        if odds_cols.sum() > 0:
-            odds_probs = odds_cols
+        odds_raw = features_df[["odds_home", "odds_draw", "odds_away"]].copy()
+        # Check if any row has valid odds
+        has_valid = (odds_raw > 0).all(axis=1).any()
+        if has_valid:
+            # Replace missing/invalid with neutral 1/3
+            invalid = odds_raw.isna() | (odds_raw <= 0)
+            odds_raw = odds_raw.fillna(1 / 3)
+            odds_raw[invalid] = 1 / 3
+            odds_probs = odds_raw.values
 
     # Try stacking meta-learner
     meta_model = load_meta_learner(model_version)

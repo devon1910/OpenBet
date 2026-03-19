@@ -76,10 +76,15 @@ def _get_odds_probs(df: pd.DataFrame) -> np.ndarray | None:
     """Extract odds implied probabilities from df, or None if not available."""
     if not all(col in df.columns for col in ["odds_home", "odds_draw", "odds_away"]):
         return None
-    odds = df[["odds_home", "odds_draw", "odds_away"]].fillna(0).values
-    if odds.sum() == 0:
+    odds = df[["odds_home", "odds_draw", "odds_away"]].copy()
+    # Replace missing/invalid odds with neutral 1/3 probability per outcome
+    invalid = odds.isna() | (odds <= 0)
+    odds = odds.fillna(1 / 3)
+    odds[invalid] = 1 / 3
+    values = odds.values
+    if values.sum() == 0:
         return None
-    return odds
+    return values
 
 
 def train_from_dataframe(df: pd.DataFrame, version: str = "v1") -> dict:
@@ -99,7 +104,7 @@ def train_from_dataframe(df: pd.DataFrame, version: str = "v1") -> dict:
     t0 = time.time()
     logger.info("Training on %d matches", len(df))
 
-    tscv = TimeSeriesSplit(n_splits=3)
+    tscv = TimeSeriesSplit(n_splits=5)
     X = prepare_features(df)
     y = df.apply(lambda r: encode_outcome(r["home_goals"], r["away_goals"]), axis=1)
     logger.info("[train] prepare_features done in %.1fs", time.time() - t0)
@@ -122,9 +127,9 @@ def train_from_dataframe(df: pd.DataFrame, version: str = "v1") -> dict:
         X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
         y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
 
-        # Train XGBoost on this fold
+        # Train XGBoost on this fold with early stopping
         model = create_model()
-        model.fit(X_train, y_train)
+        model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
         logger.info("[train] fold %d XGBoost fit done in %.1fs", fold_i, time.time() - t2)
 
         # XGBoost validation predictions

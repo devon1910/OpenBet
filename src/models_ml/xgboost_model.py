@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 FEATURE_COLUMNS = [
     "home_form",
     "away_form",
+    "home_form_home",
+    "away_form_away",
     "home_attack_strength",
     "home_defense_strength",
     "away_attack_strength",
@@ -46,7 +48,7 @@ def create_model() -> XGBClassifier:
     return XGBClassifier(
         objective="multi:softprob",
         num_class=3,
-        n_estimators=300,
+        n_estimators=500,
         max_depth=5,
         learning_rate=0.05,
         subsample=0.8,
@@ -56,15 +58,28 @@ def create_model() -> XGBClassifier:
         reg_lambda=1.0,
         random_state=42,
         eval_metric="mlogloss",
+        early_stopping_rounds=30,
     )
 
 
 def prepare_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Select and clean feature columns. Fill missing xG with 0."""
+    """Select and clean feature columns. Handle missing values properly."""
     features = df[FEATURE_COLUMNS].copy()
     # Convert all columns to numeric (handles None/object types from DB)
     for col in features.columns:
         features[col] = pd.to_numeric(features[col], errors="coerce")
+
+    # Odds columns: fill missing with -1 sentinel (0.0 would imply infinite probability)
+    odds_cols = ["odds_home", "odds_draw", "odds_away"]
+    for col in odds_cols:
+        if col in features.columns:
+            features[col] = features[col].fillna(-1.0)
+
+    # Add has_odds indicator so the model knows when odds are real vs missing
+    if "odds_home" in features.columns:
+        features["has_odds"] = (features["odds_home"] > 0).astype(float)
+
+    # Fill remaining features with 0 (form, xG, etc.)
     features = features.fillna(0.0)
     return features
 
@@ -87,6 +102,8 @@ def train(df: pd.DataFrame, version: str = "v1") -> XGBClassifier:
     y = df.apply(lambda r: encode_outcome(r["home_goals"], r["away_goals"]), axis=1)
 
     model = create_model()
+    # Final model trains on all data — disable early stopping
+    model.set_params(early_stopping_rounds=None)
     model.fit(X, y)
 
     MODEL_DIR.mkdir(exist_ok=True)

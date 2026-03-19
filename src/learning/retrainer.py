@@ -58,6 +58,20 @@ async def check_and_retrain(
     logger.info("Retraining triggered: %s", ", ".join(reasons))
     train_metrics = await train_and_evaluate(session, new_version)
 
+    if "error" not in train_metrics:
+        # Update the running config so the new model is actually used
+        settings.model_version = new_version
+        logger.info("Model version updated to %s", new_version)
+
+        # Hot-reload the model in the picks module
+        try:
+            from src.api.routes import picks
+            from src.models_ml.xgboost_model import load_model
+            picks._xgb_model = load_model(new_version)
+            logger.info("Hot-reloaded XGBoost model %s", new_version)
+        except Exception:
+            logger.warning("Could not hot-reload model — restart to use %s", new_version)
+
     return {
         "action": "retrained",
         "reasons": reasons,

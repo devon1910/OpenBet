@@ -14,6 +14,8 @@ class MatchFeature(Base):
     # Form
     home_form = Column(Float)
     away_form = Column(Float)
+    home_form_home = Column(Float)   # form from home games only
+    away_form_away = Column(Float)   # form from away games only
 
     # Strength
     home_attack_strength = Column(Float)

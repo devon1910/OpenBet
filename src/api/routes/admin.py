@@ -149,7 +149,6 @@ async def _run_backfill_features():
     """Delete ALL existing features and rebuild from scratch using bulk in-memory computation."""
     from src.database import async_session
     from src.features.bulk_builder import bulk_build_features
-    from src.features.builder import build_features_for_upcoming
     from src.features.elo import process_all_matches
     from src.models.feature import MatchFeature
     from src.models.match import Match
@@ -157,14 +156,19 @@ async def _run_backfill_features():
 
     await _set_job_status("backfill-features", "running", "Deleting old features...")
     try:
+        # Step 1: Delete old features
         async with async_session() as session:
             deleted = (await session.execute(delete(MatchFeature))).rowcount
             await session.commit()
-            await _set_job_status("backfill-features", "running", f"Deleted {deleted} old features. Rebuilding Elo...")
 
+        await _set_job_status("backfill-features", "running", f"Deleted {deleted} old features. Rebuilding Elo...")
+
+        # Step 2: Rebuild Elo (fresh session)
+        async with async_session() as session:
             await process_all_matches(session)
 
-            # Load matches to build
+        # Step 3: Bulk build historical features (fresh session)
+        async with async_session() as session:
             stmt = select(Match).where(Match.status == "FINISHED").order_by(Match.match_date.asc())
             result = await session.execute(stmt)
             matches = result.scalars().all()
@@ -175,8 +179,19 @@ async def _run_backfill_features():
             count = await bulk_build_features(session, matches, status_callback=_status)
             await session.commit()
 
-            # Also build upcoming
-            upcoming = await build_features_for_upcoming(session)
+        # Step 4: Build upcoming features (fresh session, no stale objects)
+        async with async_session() as session:
+            stmt = (
+                select(Match)
+                .where(Match.status.in_(["SCHEDULED", "TIMED"]))
+                .outerjoin(MatchFeature, MatchFeature.match_id == Match.id)
+                .where(MatchFeature.id.is_(None))
+            )
+            result = await session.execute(stmt)
+            upcoming_matches = result.scalars().all()
+
+            upcoming = await bulk_build_features(session, upcoming_matches)
+            await session.commit()
 
         await _set_job_status("backfill-features", "ok", f"Backfilled {count} historical + {upcoming} upcoming features.")
     except Exception as e:

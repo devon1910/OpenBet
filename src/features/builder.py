@@ -93,6 +93,8 @@ async def build_features_for_match(
 
 async def build_features_for_upcoming(session: AsyncSession):
     """Build features for all upcoming scheduled matches that don't have features yet."""
+    from src.features.bulk_builder import bulk_build_features
+
     stmt = (
         select(Match)
         .where(
@@ -104,15 +106,6 @@ async def build_features_for_upcoming(session: AsyncSession):
     result = await session.execute(stmt)
     matches = result.scalars().all()
 
-    count = 0
-    for match in matches:
-        try:
-            feature = await build_features_for_match(session, match)
-            session.add(feature)
-            count += 1
-        except Exception:
-            logger.exception("Failed to build features for match %s", match.id)
-
-    await session.commit()
+    count = await bulk_build_features(session, matches)
     logger.info("Built features for %d matches", count)
     return count

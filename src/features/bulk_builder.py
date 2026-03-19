@@ -293,21 +293,23 @@ async def bulk_build_features(
     # 3. Build the in-memory computer
     computer = BulkFeatureComputer(all_matches, elo_cache)
 
-    # 4. Compute features
+    # 4. Compute features in batches (commit every 100 to avoid statement timeout)
     count = 0
     total = len(matches_to_build)
+    batch_size = 100
     for match in matches_to_build:
         try:
             feature = computer.build_feature(match)
             session.add(feature)
             count += 1
-            if count % 200 == 0:
-                await session.flush()
+            if count % batch_size == 0:
+                await session.commit()
                 if status_callback:
                     await status_callback(f"Built {count}/{total} features...")
+                logger.info("[bulk] Committed batch %d/%d", count, total)
         except Exception:
             logger.exception("[bulk] Failed for match %s", match.id)
 
-    await session.flush()
+    await session.commit()
     logger.info("[bulk] Built %d features", count)
     return count

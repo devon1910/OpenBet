@@ -103,7 +103,7 @@ async def _run_fetch_odds():
 
 async def _run_build_features():
     from src.database import async_session
-    from src.features.builder import build_features_for_match, build_features_for_upcoming
+    from src.features.bulk_builder import bulk_build_features
     from src.features.elo import process_all_matches
     from src.models.feature import MatchFeature
     from src.models.match import Match
@@ -113,6 +113,9 @@ async def _run_build_features():
     try:
         async with async_session() as session:
             await process_all_matches(session)
+
+        # Build features for finished matches without features
+        async with async_session() as session:
             stmt = (
                 select(Match)
                 .where(Match.status == "FINISHED")
@@ -123,21 +126,22 @@ async def _run_build_features():
             result = await session.execute(stmt)
             matches = result.scalars().all()
 
-            total = len(matches)
-            count = 0
-            for match in matches:
-                try:
-                    feature = await build_features_for_match(session, match)
-                    session.add(feature)
-                    count += 1
-                    if count % 50 == 0:
-                        await session.commit()
-                        await _set_job_status("build-features", "running", f"Built {count}/{total} features...")
-                except Exception:
-                    logger.exception("Failed for match %s", match.id)
+            async def _status(msg):
+                await _set_job_status("build-features", "running", msg)
 
-            await session.commit()
-            upcoming = await build_features_for_upcoming(session)
+            count = await bulk_build_features(session, matches, status_callback=_status)
+
+        # Build upcoming
+        async with async_session() as session:
+            stmt = (
+                select(Match)
+                .where(Match.status.in_(["SCHEDULED", "TIMED"]))
+                .outerjoin(MatchFeature, MatchFeature.match_id == Match.id)
+                .where(MatchFeature.id.is_(None))
+            )
+            result = await session.execute(stmt)
+            upcoming_matches = result.scalars().all()
+            upcoming = await bulk_build_features(session, upcoming_matches)
 
         await _set_job_status("build-features", "ok", f"Built features for {count} historical + {upcoming} upcoming matches.")
     except Exception as e:
@@ -177,9 +181,8 @@ async def _run_backfill_features():
                 await _set_job_status("backfill-features", "running", msg)
 
             count = await bulk_build_features(session, matches, status_callback=_status)
-            await session.commit()
 
-        # Step 4: Build upcoming features (fresh session, no stale objects)
+        # Step 4: Build upcoming features (fresh session)
         async with async_session() as session:
             stmt = (
                 select(Match)
@@ -191,7 +194,6 @@ async def _run_backfill_features():
             upcoming_matches = result.scalars().all()
 
             upcoming = await bulk_build_features(session, upcoming_matches)
-            await session.commit()
 
         await _set_job_status("backfill-features", "ok", f"Backfilled {count} historical + {upcoming} upcoming features.")
     except Exception as e:

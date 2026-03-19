@@ -139,7 +139,6 @@ async def process_all_matches(session: AsyncSession):
         count += 1
 
         if count % 200 == 0:
-            await session.flush()
-
+            await session.commit()
     await session.commit()
     logger.info("Processed Elo for %d new matches", count)

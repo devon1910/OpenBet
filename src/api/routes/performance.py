@@ -93,6 +93,134 @@ async def get_performance(db: AsyncSession = Depends(get_db)):
     }
 
 
+@router.get("/paper-trading")
+async def get_paper_trading(db: AsyncSession = Depends(get_db)):
+    """Paper trading simulation — flat 1-unit stakes on all picks with odds."""
+    from src.models.match import Match
+
+    # Load all picks with their match dates, ordered chronologically
+    stmt = (
+        select(Pick, Match.match_date, Match.home_goals, Match.away_goals)
+        .join(Match, Match.id == Pick.match_id)
+        .order_by(Match.match_date.asc(), Pick.id.asc())
+    )
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    if not rows:
+        return {"error": "no_picks", "message": "No picks found yet."}
+
+    starting_bankroll = 100.0
+    bankroll = starting_bankroll
+    unit_stake = 1.0
+
+    # Build equity curve and stats
+    equity_curve = []
+    daily = defaultdict(lambda: {"picks": 0, "profit": 0.0})
+    settled = 0
+    pending = 0
+    wins = 0
+    losses = 0
+    current_streak = 0
+    best_win_streak = 0
+    worst_loss_streak = 0
+    by_type = defaultdict(lambda: {"total": 0, "wins": 0, "profit": 0.0, "staked": 0})
+
+    recent_results = []
+
+    for pick, match_date, home_goals, away_goals in rows:
+        day_key = match_date.strftime("%Y-%m-%d") if hasattr(match_date, 'strftime') else str(match_date)
+
+        if pick.outcome is None:
+            pending += 1
+            continue
+
+        settled += 1
+        bt = by_type[pick.pick_type]
+        bt["total"] += 1
+
+        profit = 0.0
+        if pick.odds_decimal and pick.odds_decimal > 0:
+            bt["staked"] += 1
+            if pick.outcome == "WIN":
+                profit = (pick.odds_decimal - 1.0) * unit_stake
+            else:
+                profit = -unit_stake
+            bt["profit"] += profit
+
+        if pick.outcome == "WIN":
+            wins += 1
+            bt["wins"] += 1
+            current_streak = max(1, current_streak + 1) if current_streak >= 0 else 1
+            best_win_streak = max(best_win_streak, current_streak)
+        elif pick.outcome == "LOSS":
+            losses += 1
+            current_streak = min(-1, current_streak - 1) if current_streak <= 0 else -1
+            worst_loss_streak = max(worst_loss_streak, abs(current_streak))
+
+        bankroll += profit
+        daily[day_key]["picks"] += 1
+        daily[day_key]["profit"] += profit
+
+        recent_results.append({
+            "pick_type": pick.pick_type,
+            "pick_value": pick.pick_value,
+            "confidence": round(pick.confidence, 3) if pick.confidence else None,
+            "edge": round(pick.edge, 3) if pick.edge else None,
+            "odds": round(pick.odds_decimal, 2) if pick.odds_decimal else None,
+            "outcome": pick.outcome,
+            "profit": round(profit, 2),
+            "date": day_key,
+        })
+
+    # Build equity curve
+    running_bankroll = starting_bankroll
+    for day_key in sorted(daily.keys()):
+        d = daily[day_key]
+        running_bankroll += d["profit"]
+        equity_curve.append({
+            "date": day_key,
+            "bankroll": round(running_bankroll, 2),
+            "picks": d["picks"],
+            "profit": round(d["profit"], 2),
+        })
+
+    streak_label = f"W{current_streak}" if current_streak > 0 else f"L{abs(current_streak)}" if current_streak < 0 else "—"
+
+    total_staked = sum(v["staked"] for v in by_type.values())
+    total_profit = bankroll - starting_bankroll
+
+    return {
+        "starting_bankroll": starting_bankroll,
+        "current_bankroll": round(bankroll, 2),
+        "total_profit": round(total_profit, 2),
+        "roi": round(total_profit / total_staked * 100, 2) if total_staked > 0 else None,
+        "unit_stake": unit_stake,
+        "total_picks": settled + pending,
+        "settled_picks": settled,
+        "pending_picks": pending,
+        "wins": wins,
+        "losses": losses,
+        "accuracy": round(wins / settled, 3) if settled > 0 else None,
+        "streak": {
+            "current": streak_label,
+            "best_win": best_win_streak,
+            "worst_loss": worst_loss_streak,
+        },
+        "by_type": {
+            k: {
+                "total": v["total"],
+                "wins": v["wins"],
+                "accuracy": round(v["wins"] / v["total"], 3) if v["total"] else 0,
+                "roi": round(v["profit"] / v["staked"] * 100, 2) if v["staked"] > 0 else None,
+            }
+            for k, v in by_type.items()
+        },
+        "equity_curve": equity_curve,
+        "recent_results": recent_results[-20:],
+    }
+
+
 @router.post("/evaluate")
 async def run_evaluation(
     weeks: int = Query(4, ge=1, le=52),

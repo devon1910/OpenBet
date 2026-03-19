@@ -161,8 +161,8 @@ async def _run_pipeline():
     pipeline_status["pipeline"]["status"] = "running"
     try:
         await _sync_data()
-        await _fetch_odds()
         await _build_features()
+        await _fetch_odds()
         await _generate_predictions()
         pipeline_status["pipeline"]["status"] = "ok"
     except Exception:

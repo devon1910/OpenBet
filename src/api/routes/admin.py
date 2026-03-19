@@ -143,7 +143,20 @@ async def _run_build_features():
             upcoming_matches = result.scalars().all()
             upcoming = await bulk_build_features(session, upcoming_matches)
 
-        await _set_job_status("build-features", "ok", f"Built features for {count} historical + {upcoming} upcoming matches.")
+        # Enrich upcoming features with odds
+        try:
+            from src.collectors.odds_api import OddsApiCollector
+            collector = OddsApiCollector()
+            try:
+                async with async_session() as session:
+                    odds_count = await collector.enrich_odds(session)
+            finally:
+                await collector.close()
+        except Exception:
+            odds_count = 0
+            logger.warning("Odds enrichment failed, continuing without odds")
+
+        await _set_job_status("build-features", "ok", f"Built features for {count} historical + {upcoming} upcoming matches. Odds updated for {odds_count} matches.")
     except Exception as e:
         logger.exception("Feature building failed")
         await _set_job_status("build-features", "error", str(e))
@@ -195,7 +208,20 @@ async def _run_backfill_features():
 
             upcoming = await bulk_build_features(session, upcoming_matches)
 
-        await _set_job_status("backfill-features", "ok", f"Backfilled {count} historical + {upcoming} upcoming features.")
+        # Step 5: Enrich upcoming features with odds
+        try:
+            from src.collectors.odds_api import OddsApiCollector
+            collector = OddsApiCollector()
+            try:
+                async with async_session() as session:
+                    odds_count = await collector.enrich_odds(session)
+            finally:
+                await collector.close()
+        except Exception:
+            odds_count = 0
+            logger.warning("Odds enrichment failed, continuing without odds")
+
+        await _set_job_status("backfill-features", "ok", f"Backfilled {count} historical + {upcoming} upcoming features. Odds updated for {odds_count} matches.")
     except Exception as e:
         logger.exception("Backfill failed")
         await _set_job_status("backfill-features", "error", str(e))

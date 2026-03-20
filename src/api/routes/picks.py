@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from src.api.deps import get_db
+from src.collectors.odds_api import OddsApiCollector
 from src.engine.betting import evaluate_betting_opportunity
 from src.models.feature import MatchFeature
 from src.models.match import Match
@@ -161,12 +162,13 @@ async def _run_predictions_for_date(target_date: date, db: AsyncSession) -> list
     """
     start, end = _date_range(target_date)
 
-    # Find matches on this date, with optional features
+    # Find upcoming/scheduled matches on this date (exclude finished matches)
     stmt = (
         select(Match)
         .where(
             Match.match_date >= start,
             Match.match_date < end,
+            Match.status.in_(["SCHEDULED", "TIMED"]),
         )
         .options(
             joinedload(Match.home_team),
@@ -328,6 +330,14 @@ async def get_picks_by_date(target_date: str, force: bool = False, db: AsyncSess
             await db.execute(delete(Pick).where(Pick.match_id.in_(match_ids)))
             await db.execute(delete(Prediction).where(Prediction.match_id.in_(match_ids)))
             await db.commit()
+
+        # Fetch latest odds before regenerating so predictions use current market prices
+        try:
+            odds_collector = OddsApiCollector()
+            updated = await odds_collector.enrich_odds(db)
+            logger.info("Refreshed odds for %d matches before regeneration", updated)
+        except Exception:
+            logger.warning("Failed to refresh odds before regeneration — using cached odds")
 
     # Check for existing picks first
     picks = await _get_picks_for_date(parsed_date, db)

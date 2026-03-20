@@ -34,10 +34,11 @@ def evaluate_betting_opportunity(
 
     picks = []
 
-    # Convert decimal odds to implied probabilities (default to model probs if no odds)
-    market_home = (1.0 / odds_home) if odds_home and odds_home > 0 else prob_home
-    market_draw = (1.0 / odds_draw) if odds_draw and odds_draw > 0 else prob_draw
-    market_away = (1.0 / odds_away) if odds_away and odds_away > 0 else prob_away
+    # odds_home/draw/away are already normalized implied probabilities from the odds
+    # collector — use them directly (fall back to model probs when no odds available)
+    market_home = odds_home if odds_home and odds_home > 0 else prob_home
+    market_draw = odds_draw if odds_draw and odds_draw > 0 else prob_draw
+    market_away = odds_away if odds_away and odds_away > 0 else prob_away
 
     # Straight win checks
     if prob_home > settings.straight_win_threshold:

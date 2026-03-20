@@ -5,15 +5,17 @@ Runs inside the FastAPI process using AsyncIOScheduler.
 
 Pipeline (every 6 hours):
   1. Sync match data
-  2. Fetch odds
-  3. Build features + ELO
+  2. Build features + ELO
+  3. Fetch odds
   4. Generate predictions/picks
 
 Outcome resolution runs nightly at 23:30 UTC.
 Model evaluation + retraining runs every Monday at 04:00 UTC.
+On startup, the pipeline runs once after a short delay.
 """
 
 import asyncio
+import json
 import logging
 from datetime import datetime, timezone
 
@@ -24,16 +26,70 @@ logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler(timezone="UTC")
 
-# Public pipeline status — readable by anyone via GET /pipeline-status
-pipeline_status: dict = {
-    "pipeline": {"last_run": None, "status": None, "next_run": None},
-    "retrain":  {"last_run": None, "status": None, "action": None},
-    "outcomes": {"last_run": None, "status": None},
-}
-
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+
+async def _set_pipeline_status(key: str, status: str, **extra):
+    """Persist pipeline status to DB via JobStatus table."""
+    from src.database import async_session
+    from src.models.job_status import JobStatus
+
+    action = f"pipeline:{key}"
+    extra_json = json.dumps(extra) if extra else ""
+    try:
+        async with async_session() as session:
+            row = await session.get(JobStatus, action)
+            if row is None:
+                row = JobStatus(action=action)
+                session.add(row)
+            row.status = status
+            row.message = extra.get("message", "")
+            row.extra_json = extra_json
+            row.updated_at = datetime.now(timezone.utc)
+            await session.commit()
+    except Exception as e:
+        logger.warning("Could not write pipeline status to DB: %s", e)
+
+
+async def get_pipeline_status() -> dict:
+    """Read pipeline status from DB."""
+    from src.database import async_session
+    from src.models.job_status import JobStatus
+    from sqlalchemy import select
+
+    result = {
+        "pipeline": {"last_run": None, "status": None, "next_run": None},
+        "retrain":  {"last_run": None, "status": None, "action": None},
+        "outcomes": {"last_run": None, "status": None},
+    }
+
+    try:
+        async with async_session() as session:
+            stmt = select(JobStatus).where(JobStatus.action.like("pipeline:%"))
+            rows = (await session.execute(stmt)).scalars().all()
+            for row in rows:
+                key = row.action.replace("pipeline:", "")
+                if key in result:
+                    result[key]["last_run"] = row.updated_at.strftime("%Y-%m-%d %H:%M UTC") if row.updated_at else None
+                    result[key]["status"] = row.status
+                    if row.extra_json:
+                        try:
+                            extras = json.loads(row.extra_json)
+                            if key == "retrain" and "action" in extras:
+                                result[key]["action"] = extras["action"]
+                        except Exception:
+                            pass
+    except Exception as e:
+        logger.warning("Could not read pipeline status from DB: %s", e)
+
+    # Always populate next_run from scheduler
+    job = scheduler.get_job("pipeline_6h")
+    if job and job.next_run_time:
+        result["pipeline"]["next_run"] = job.next_run_time.strftime("%Y-%m-%d %H:%M UTC")
+
+    return result
 
 
 async def _sync_data():
@@ -129,13 +185,11 @@ async def _update_outcomes():
     try:
         async with async_session() as session:
             count = await update_outcomes(session)
-        pipeline_status["outcomes"]["status"] = "ok"
+        await _set_pipeline_status("outcomes", "ok", message=f"Resolved {count} outcomes.")
         logger.info("[scheduler] Resolved %d outcomes.", count)
     except Exception:
         logger.exception("[scheduler] Outcome resolution failed")
-        pipeline_status["outcomes"]["status"] = "error"
-    finally:
-        pipeline_status["outcomes"]["last_run"] = _now_iso()
+        await _set_pipeline_status("outcomes", "error", message="Outcome resolution failed")
 
 
 async def _evaluate_and_retrain():
@@ -148,34 +202,25 @@ async def _evaluate_and_retrain():
         async with async_session() as session:
             result = await check_and_retrain(session, settings.model_version)
         action = result.get("action", "none")
-        pipeline_status["retrain"]["status"] = "ok"
-        pipeline_status["retrain"]["action"] = action
+        await _set_pipeline_status("retrain", "ok", action=action, message=f"Evaluation complete: {action}")
         logger.info("[scheduler] Evaluation result: %s", action)
     except Exception:
         logger.exception("[scheduler] Evaluation/retraining failed")
-        pipeline_status["retrain"]["status"] = "error"
-        pipeline_status["retrain"]["action"] = None
-    finally:
-        pipeline_status["retrain"]["last_run"] = _now_iso()
+        await _set_pipeline_status("retrain", "error", message="Evaluation/retraining failed")
 
 
 async def _run_pipeline():
-    """Full 6-hour pipeline: sync → odds → features → predictions."""
-    pipeline_status["pipeline"]["status"] = "running"
+    """Full 6-hour pipeline: sync → features → odds → predictions."""
+    await _set_pipeline_status("pipeline", "running", message="Pipeline running...")
     try:
         await _sync_data()
         await _build_features()
         await _fetch_odds()
         await _generate_predictions()
-        pipeline_status["pipeline"]["status"] = "ok"
+        await _set_pipeline_status("pipeline", "ok", message="Pipeline completed successfully.")
     except Exception:
         logger.exception("[scheduler] Pipeline run failed")
-        pipeline_status["pipeline"]["status"] = "error"
-    finally:
-        pipeline_status["pipeline"]["last_run"] = _now_iso()
-        job = scheduler.get_job("pipeline_6h")
-        if job and job.next_run_time:
-            pipeline_status["pipeline"]["next_run"] = job.next_run_time.strftime("%Y-%m-%d %H:%M UTC")
+        await _set_pipeline_status("pipeline", "error", message="Pipeline run failed")
 
 
 def start_scheduler():
@@ -210,7 +255,6 @@ def start_scheduler():
     scheduler.start()
     logger.info("[scheduler] APScheduler started. Jobs: %s", [j.id for j in scheduler.get_jobs()])
 
-    # Populate next_run on startup
-    job = scheduler.get_job("pipeline_6h")
-    if job and job.next_run_time:
-        pipeline_status["pipeline"]["next_run"] = job.next_run_time.strftime("%Y-%m-%d %H:%M UTC")
+    # Run the pipeline once on startup (30s delay so the app is fully ready)
+    asyncio.get_event_loop().call_later(30, lambda: asyncio.ensure_future(_run_pipeline()))
+    logger.info("[scheduler] Startup pipeline run scheduled in 30 seconds.")

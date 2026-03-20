@@ -9,7 +9,7 @@ async def health_check():
 
 
 @router.get("/pipeline-status")
-async def get_pipeline_status():
-    """Public endpoint — returns last pipeline run time and result."""
-    from src.workers.scheduler import pipeline_status
-    return pipeline_status
+async def pipeline_status():
+    """Public endpoint — returns last pipeline run time and result from DB."""
+    from src.workers.scheduler import get_pipeline_status
+    return await get_pipeline_status()

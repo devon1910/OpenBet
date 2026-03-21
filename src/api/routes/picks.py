@@ -162,13 +162,15 @@ async def _run_predictions_for_date(target_date: date, db: AsyncSession) -> list
     """
     start, end = _date_range(target_date)
 
-    # Find matches on this date that haven't finished yet
+    # Find matches on this date that haven't kicked off yet.
+    # Use kickoff time rather than status field, which can lag behind syncs.
+    now = datetime.now(timezone.utc)
     stmt = (
         select(Match)
         .where(
             Match.match_date >= start,
             Match.match_date < end,
-            Match.status.notin_(["FINISHED"]),
+            Match.match_date > now,
         )
         .options(
             joinedload(Match.home_team),
@@ -321,9 +323,15 @@ async def get_picks_by_date(target_date: str, force: bool = False, db: AsyncSess
         return {"error": "Invalid date format. Use YYYY-MM-DD.", "picks": [], "count": 0}
 
     if force:
-        # Delete existing picks and predictions for this date
+        # Delete existing picks/predictions only for matches that haven't kicked off yet.
+        # Keeps picks for already-played matches intact.
         start, end = _date_range(parsed_date)
-        match_ids_stmt = select(Match.id).where(Match.match_date >= start, Match.match_date < end)
+        now = datetime.now(timezone.utc)
+        match_ids_stmt = select(Match.id).where(
+            Match.match_date >= start,
+            Match.match_date < end,
+            Match.match_date > now,
+        )
         match_ids = (await db.execute(match_ids_stmt)).scalars().all()
         if match_ids:
             from sqlalchemy import delete

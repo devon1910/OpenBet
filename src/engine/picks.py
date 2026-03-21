@@ -13,7 +13,7 @@ from sqlalchemy.orm import joinedload
 
 from src.config import settings
 from src.engine.betting import evaluate_betting_opportunity
-from src.engine.claude_reasoning import get_match_reasoning
+from src.engine.claude_reasoning import get_batch_reasoning
 from src.models.feature import MatchFeature
 from src.models.match import Match
 from src.models.prediction import Pick, Prediction
@@ -81,27 +81,31 @@ async def generate_predictions_and_picks(
     # Ensemble predictions
     ensemble_results = ensemble_predict(features_df, model_version)
 
-    # Process each match: Claude reasoning + betting evaluation
+    # Batch Claude reasoning — single API call for all matches
+    claude_inputs = []
+    for i, ens in enumerate(ensemble_results):
+        match, feature = match_map[i]
+        claude_inputs.append({
+            "home_team": match.home_team.name,
+            "away_team": match.away_team.name,
+            "competition": match.competition.name,
+            "model_probs": ens,
+            "context": {
+                "home_form_str": f"Form score: {feature.home_form:.2f}" if feature.home_form else "N/A",
+                "away_form_str": f"Form score: {feature.away_form:.2f}" if feature.away_form else "N/A",
+                "home_position": "N/A",
+                "away_position": "N/A",
+            },
+        })
+
+    reasoning_results = await get_batch_reasoning(claude_inputs)
+
+    # Process each match with its reasoning
     all_candidates = []
 
     for i, ens in enumerate(ensemble_results):
         match, feature = match_map[i]
-
-        # Claude reasoning
-        context = {
-            "home_form_str": f"Form score: {feature.home_form:.2f}" if feature.home_form else "N/A",
-            "away_form_str": f"Form score: {feature.away_form:.2f}" if feature.away_form else "N/A",
-            "home_position": "N/A",
-            "away_position": "N/A",
-        }
-
-        reasoning = await get_match_reasoning(
-            home_team=match.home_team.name,
-            away_team=match.away_team.name,
-            competition=match.competition.name,
-            model_probs=ens,
-            context=context,
-        )
+        reasoning = reasoning_results[i]
 
         # Apply Claude adjustment to the favored outcome
         adj = reasoning["confidence_adjustment"]

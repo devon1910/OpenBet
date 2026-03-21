@@ -63,13 +63,15 @@ def evaluate_betting_opportunity(
                 "odds_decimal": 1.0 / market_away if market_away > 0 else None,
             })
 
-    # Double chance checks (only if no straight win already found for this side)
+    # Double chance checks — evaluated independently so a match where the
+    # straight win lacks edge can still surface a double chance pick.
+    # When both qualify for the same side, keep only the better edge.
     home_not_lose = prob_home + prob_draw
     away_not_lose = prob_away + prob_draw
     market_home_not_lose = market_home + market_draw
     market_away_not_lose = market_away + market_draw
 
-    if home_not_lose > settings.double_chance_threshold and prob_home <= settings.straight_win_threshold:
+    if home_not_lose > settings.double_chance_threshold:
         edge = home_not_lose - market_home_not_lose
         if edge >= settings.min_value_edge or odds_home is None:
             picks.append({
@@ -80,7 +82,7 @@ def evaluate_betting_opportunity(
                 "odds_decimal": 1.0 / market_home_not_lose if market_home_not_lose > 0 else None,
             })
 
-    if away_not_lose > settings.double_chance_threshold and prob_away <= settings.straight_win_threshold:
+    if away_not_lose > settings.double_chance_threshold:
         edge = away_not_lose - market_away_not_lose
         if edge >= settings.min_value_edge or odds_away is None:
             picks.append({
@@ -90,5 +92,24 @@ def evaluate_betting_opportunity(
                 "edge": edge,
                 "odds_decimal": 1.0 / market_away_not_lose if market_away_not_lose > 0 else None,
             })
+
+    # Deduplicate: if both straight win and double chance exist for the same
+    # side, keep only the one with the better edge
+    if len(picks) > 1:
+        home_sw = [p for p in picks if p["pick_value"] == "HOME"]
+        home_dc = [p for p in picks if p["pick_value"] == "1X"]
+        away_sw = [p for p in picks if p["pick_value"] == "AWAY"]
+        away_dc = [p for p in picks if p["pick_value"] == "X2"]
+
+        drop = set()
+        if home_sw and home_dc:
+            loser = home_dc[0] if home_sw[0]["edge"] >= home_dc[0]["edge"] else home_sw[0]
+            drop.add(id(loser))
+        if away_sw and away_dc:
+            loser = away_dc[0] if away_sw[0]["edge"] >= away_dc[0]["edge"] else away_sw[0]
+            drop.add(id(loser))
+
+        if drop:
+            picks = [p for p in picks if id(p) not in drop]
 
     return picks

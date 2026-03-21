@@ -29,22 +29,38 @@ logger = logging.getLogger(__name__)
 async def generate_predictions_and_picks(
     session: AsyncSession,
     model_version: str = "v1",
+    target_date: "date | None" = None,
 ) -> list[Pick]:
     """Full pipeline: features → ensemble → Claude reasoning → picks.
 
+    Args:
+        target_date: If provided, only predict matches on this specific date.
+                     Otherwise, predict all upcoming scheduled matches.
+
     Returns list of Pick objects (already added to session).
     """
-    # Load upcoming matches with features
+    from datetime import date as date_type, datetime, timedelta, timezone
+
+    # Load matches with features
     stmt = (
         select(Match, MatchFeature)
         .join(MatchFeature, MatchFeature.match_id == Match.id)
-        .where(Match.status == "SCHEDULED")
         .options(
             joinedload(Match.home_team),
             joinedload(Match.away_team),
             joinedload(Match.competition),
         )
     )
+
+    if target_date is not None:
+        # Predict all matches on the given date (regardless of status)
+        start = datetime(target_date.year, target_date.month, target_date.day, tzinfo=timezone.utc)
+        end = start + timedelta(days=1)
+        stmt = stmt.where(Match.match_date >= start, Match.match_date < end)
+    else:
+        # Default: only upcoming scheduled matches
+        stmt = stmt.where(Match.status.in_(["SCHEDULED", "TIMED"]))
+
     result = await session.execute(stmt)
     rows = result.unique().all()
 

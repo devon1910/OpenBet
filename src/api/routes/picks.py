@@ -1,6 +1,5 @@
 """Picks endpoints - betting recommendations by date."""
 
-from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
@@ -10,86 +9,16 @@ from sqlalchemy.orm import joinedload
 
 from src.api.deps import get_db
 from src.collectors.odds_api import OddsApiCollector
-from src.engine.betting import evaluate_betting_opportunity
-from src.models.feature import MatchFeature
+from src.engine.picks import generate_predictions_and_picks
 from src.models.match import Match
 from src.models.prediction import Pick, Prediction
-from src.models_ml.ensemble import ensemble_predict
-from src.models_ml.poisson import match_outcome_probabilities
-from src.models_ml.xgboost_model import FEATURE_COLUMNS, load_model, prepare_features
 
 import logging
-import pandas as pd
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Try to load the XGBoost model at startup
-_xgb_model = None
-try:
-    _xgb_model = load_model("v1")
-    logger.info("XGBoost model v1 loaded successfully")
-except Exception:
-    logger.warning("XGBoost model not found — predictions will use Poisson only")
-
-
-def _build_reasoning(pick_type: str, pick_value: str, ctx: dict) -> str:
-    """Generate a short human-readable reason for a pick."""
-    home = ctx["home"]
-    away = ctx["away"]
-    ph = ctx["prob_home"]
-    pd_ = ctx["prob_draw"]
-    pa = ctx["prob_away"]
-    feat = ctx.get("feature")
-
-    parts = []
-
-    # Core probability statement
-    if pick_type == "STRAIGHT_WIN" and pick_value == "HOME":
-        parts.append(f"{home} have a {ph:.0%} win probability, making them clear favourites.")
-    elif pick_type == "STRAIGHT_WIN" and pick_value == "AWAY":
-        parts.append(f"{away} have a {pa:.0%} win probability, making them clear favourites.")
-    elif pick_value == "1X":
-        parts.append(f"{home} have a {ph + pd_:.0%} combined chance of winning or drawing.")
-    elif pick_value == "X2":
-        parts.append(f"{away} have a {pa + pd_:.0%} combined chance of winning or drawing.")
-    else:
-        parts.append(f"Probabilities: {home} {ph:.0%}, Draw {pd_:.0%}, {away} {pa:.0%}.")
-
-    # Supporting factors
-    factors = []
-    if feat:
-        if feat.elo_diff is not None:
-            diff = feat.elo_diff
-            if abs(diff) > 80:
-                stronger = home if diff > 0 else away
-                factors.append(f"{stronger} are Elo-rated significantly higher")
-            elif abs(diff) < 30:
-                factors.append("both teams are closely rated by Elo")
-
-        if feat.home_form is not None and feat.away_form is not None:
-            fd = feat.home_form - feat.away_form
-            if fd > 5:
-                factors.append(f"{home} are in stronger recent form")
-            elif fd < -5:
-                factors.append(f"{away} are in stronger recent form")
-
-        if feat.home_advantage is not None and feat.home_advantage > 0.55:
-            factors.append(f"{home} have a strong home record")
-
-        if feat.h2h_home_wins is not None:
-            total = (feat.h2h_home_wins or 0) + (feat.h2h_draws or 0) + (feat.h2h_away_wins or 0)
-            if total >= 3:
-                if feat.h2h_home_wins / total > 0.6:
-                    factors.append(f"{home} dominate the head-to-head record")
-                elif feat.h2h_away_wins / total > 0.6:
-                    factors.append(f"{away} dominate the head-to-head record")
-
-    if factors:
-        parts.append(" ".join(f.capitalize() if i == 0 else f for i, f in enumerate(factors[:2])) + ".")
-
-    return " ".join(parts)
 
 
 def _format_pick(pick: Pick, match: Match) -> dict:
@@ -155,158 +84,29 @@ async def _get_picks_for_date(target_date: date, db: AsyncSession) -> list[dict]
 
 
 async def _run_predictions_for_date(target_date: date, db: AsyncSession) -> list[dict]:
-    """Run the prediction engine for matches on a specific date.
+    """Run the full prediction engine for matches on a specific date.
 
-    Uses Poisson model directly for on-the-fly predictions when no
-    pre-computed picks exist yet.
+    Uses the same pipeline as the scheduler: ensemble + Claude reasoning.
     """
-    start, end = _date_range(target_date)
+    pick_objects = await generate_predictions_and_picks(db, target_date=target_date)
 
-    # Find matches on this date that haven't kicked off yet.
-    # Use kickoff time rather than status field, which can lag behind syncs.
-    now = datetime.now(timezone.utc)
-    stmt = (
-        select(Match)
-        .where(
-            Match.match_date >= start,
-            Match.match_date < end,
-            Match.match_date > now,
-        )
-        .options(
-            joinedload(Match.home_team),
-            joinedload(Match.away_team),
-            joinedload(Match.competition),
-            joinedload(Match.features),
-        )
-    )
-    result = await db.execute(stmt)
-    matches = result.unique().scalars().all()
-
-    if not matches:
+    if not pick_objects:
         return []
 
-    all_candidates = []
-
-    for match in matches:
-        feature = match.features
-
-        # Build feature dict for this match
-        feat_dict = {}
-        if feature:
-            feat_dict = {col: getattr(feature, col, None) for col in FEATURE_COLUMNS}
-        else:
-            feat_dict = {col: None for col in FEATURE_COLUMNS}
-
-        # Poisson baseline (always available)
-        home_attack = feat_dict.get("home_attack_strength") or 1.0
-        home_defense = feat_dict.get("home_defense_strength") or 1.0
-        away_attack = feat_dict.get("away_attack_strength") or 1.0
-        away_defense = feat_dict.get("away_defense_strength") or 1.0
-
-        poisson_result = match_outcome_probabilities(
-            home_attack=home_attack,
-            home_defense=home_defense,
-            away_attack=away_attack,
-            away_defense=away_defense,
-        )
-
-        # Try stacking ensemble (Poisson + XGBoost + odds via meta-learner)
-        prob_home = poisson_result["home_win"]
-        prob_draw = poisson_result["draw"]
-        prob_away = poisson_result["away_win"]
-
-        if _xgb_model is not None and feature:
-            try:
-                feat_df = pd.DataFrame([feat_dict])
-                ens_results = ensemble_predict(feat_df, model_version="v1")
-                if ens_results:
-                    prob_home = ens_results[0]["ensemble_home"]
-                    prob_draw = ens_results[0]["ensemble_draw"]
-                    prob_away = ens_results[0]["ensemble_away"]
-            except Exception:
-                logger.debug("Ensemble failed for match %s, using Poisson only", match.id)
-
-        # Save prediction
-        prediction = Prediction(
-            match_id=match.id,
-            model_version="live",
-            poisson_home=poisson_result["home_win"],
-            poisson_draw=poisson_result["draw"],
-            poisson_away=poisson_result["away_win"],
-            ensemble_home=prob_home,
-            ensemble_draw=prob_draw,
-            ensemble_away=prob_away,
-            prob_home=prob_home,
-            prob_draw=prob_draw,
-            prob_away=prob_away,
-        )
-        db.add(prediction)
-        await db.flush()
-
-        # Build context dict for reasoning
-        ctx = {
-            "home": match.home_team.name,
-            "away": match.away_team.name,
-            "prob_home": prob_home,
-            "prob_draw": prob_draw,
-            "prob_away": prob_away,
-            "feature": feature,
-        }
-
-        # Evaluate betting opportunities with value edge filtering
-        odds_home = feature.odds_home if feature else None
-        odds_draw = feature.odds_draw if feature else None
-        odds_away = feature.odds_away if feature else None
-
-        bet_picks = evaluate_betting_opportunity(
-            prob_home, prob_draw, prob_away,
-            odds_home=odds_home,
-            odds_draw=odds_draw,
-            odds_away=odds_away,
-        )
-
-        for bp in bet_picks:
-            bp["reasoning"] = _build_reasoning(bp["pick_type"], bp["pick_value"], ctx)
-            all_candidates.append({
-                "prediction": prediction,
-                "match": match,
-                "competition_id": match.competition_id,
-                **bp,
-            })
-
-    # Sort by edge (value) then confidence, diversify across leagues, take top picks
-    from src.config import settings
-    all_candidates.sort(key=lambda x: (x.get("edge", 0), x["confidence"]), reverse=True)
-    league_counts: dict[int, int] = defaultdict(int)
-    selected = []
-    for c in all_candidates:
-        if len(selected) >= settings.max_picks_per_matchday:
-            break
-        comp_id = c["competition_id"]
-        if league_counts[comp_id] >= 2:
-            continue
-        selected.append(c)
-        league_counts[comp_id] += 1
-
-    # Save picks and format output
+    # Format output
     output = []
-    for p in selected:
-        pick = Pick(
-            prediction_id=p["prediction"].id,
-            match_id=p["match"].id,
-            pick_type=p["pick_type"],
-            pick_value=p["pick_value"],
-            confidence=p["confidence"],
-            edge=p.get("edge"),
-            odds_decimal=p.get("odds_decimal"),
-            reasoning=p.get("reasoning", ""),
-            matchday_label=f"MD{p['match'].matchday or '?'}",
-        )
-        db.add(pick)
-        await db.flush()
-        output.append(_format_pick(pick, p["match"]))
+    for pick in pick_objects:
+        match = (await db.execute(
+            select(Match)
+            .where(Match.id == pick.match_id)
+            .options(
+                joinedload(Match.home_team),
+                joinedload(Match.away_team),
+                joinedload(Match.competition),
+            )
+        )).unique().scalar_one()
+        output.append(_format_pick(pick, match))
 
-    await db.commit()
     return output
 
 
@@ -323,20 +123,31 @@ async def get_picks_by_date(target_date: str, force: bool = False, db: AsyncSess
         return {"error": "Invalid date format. Use YYYY-MM-DD.", "picks": [], "count": 0}
 
     if force:
-        # Delete existing picks/predictions only for matches that haven't kicked off yet.
-        # Keeps picks for already-played matches intact.
+        # Delete existing picks/predictions that haven't been resolved yet.
+        # Keeps resolved picks (WIN/LOSS/VOID) intact.
         start, end = _date_range(parsed_date)
-        now = datetime.now(timezone.utc)
         match_ids_stmt = select(Match.id).where(
             Match.match_date >= start,
             Match.match_date < end,
-            Match.match_date > now,
         )
         match_ids = (await db.execute(match_ids_stmt)).scalars().all()
         if match_ids:
             from sqlalchemy import delete
-            await db.execute(delete(Pick).where(Pick.match_id.in_(match_ids)))
-            await db.execute(delete(Prediction).where(Prediction.match_id.in_(match_ids)))
+            # Only delete unresolved picks
+            await db.execute(
+                delete(Pick).where(
+                    Pick.match_id.in_(match_ids),
+                    Pick.outcome.is_(None),
+                )
+            )
+            # Delete predictions that no longer have picks
+            pred_with_picks = select(Pick.prediction_id).where(Pick.prediction_id.is_not(None))
+            await db.execute(
+                delete(Prediction).where(
+                    Prediction.match_id.in_(match_ids),
+                    Prediction.id.notin_(pred_with_picks),
+                )
+            )
             await db.commit()
 
         # Fetch latest odds before regenerating so predictions use current market prices

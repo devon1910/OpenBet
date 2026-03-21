@@ -130,6 +130,14 @@ async def get_picks_by_date(target_date: str, force: bool = False, db: AsyncSess
     except ValueError:
         return {"error": "Invalid date format. Use YYYY-MM-DD.", "picks": [], "count": 0}
 
+    try:
+        return await _get_picks_by_date_inner(parsed_date, force, db)
+    except Exception:
+        logger.exception("Failed to get picks for %s (force=%s)", target_date, force)
+        raise
+
+
+async def _get_picks_by_date_inner(parsed_date: date, force: bool, db: AsyncSession):
     if force:
         # Delete existing picks/predictions that haven't been resolved yet.
         # Keeps resolved picks (WIN/LOSS/VOID) intact.

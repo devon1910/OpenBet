@@ -162,13 +162,13 @@ async def _run_predictions_for_date(target_date: date, db: AsyncSession) -> list
     """
     start, end = _date_range(target_date)
 
-    # Find upcoming/scheduled matches on this date (exclude finished matches)
+    # Find matches on this date that haven't finished yet
     stmt = (
         select(Match)
         .where(
             Match.match_date >= start,
             Match.match_date < end,
-            Match.status.in_(["SCHEDULED", "TIMED"]),
+            Match.status.notin_(["FINISHED"]),
         )
         .options(
             joinedload(Match.home_team),

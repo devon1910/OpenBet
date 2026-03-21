@@ -8,8 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from src.api.deps import get_db
+from src.collectors.football_data import FootballDataCollector
 from src.collectors.odds_api import OddsApiCollector
 from src.engine.picks import generate_predictions_and_picks
+from src.features.bulk_builder import bulk_build_features
+from src.features.elo import process_all_matches
 from src.models.match import Match
 from src.models.prediction import Pick, Prediction
 
@@ -51,14 +54,17 @@ def _date_range(target_date: date) -> tuple[datetime, datetime]:
 
 
 async def _get_picks_for_date(target_date: date, db: AsyncSession) -> list[dict]:
-    """Get existing picks for a given date."""
+    """Get existing picks for a given date (only future matches for today)."""
     start, end = _date_range(target_date)
+    now = datetime.now(timezone.utc)
+    # For today/past dates, only show matches that haven't kicked off
+    cutoff = max(start, now) if target_date <= date.today() else start
 
     stmt = (
         select(Pick)
         .join(Match, Match.id == Pick.match_id)
         .where(
-            Match.match_date >= start,
+            Match.match_date >= cutoff,
             Match.match_date < end,
         )
         .options(joinedload(Pick.prediction))
@@ -139,9 +145,50 @@ async def get_picks_by_date(target_date: str, force: bool = False, db: AsyncSess
 
 async def _get_picks_by_date_inner(parsed_date: date, force: bool, db: AsyncSession):
     if force:
-        # Delete existing picks/predictions that haven't been resolved yet.
-        # Keeps resolved picks (WIN/LOSS/VOID) intact.
+        # 1. Light sync — fetch latest match data (status changes, new matches)
+        try:
+            sync_collector = FootballDataCollector()
+            try:
+                await sync_collector.sync_matches_only(db)
+                logger.info("Light sync complete")
+            finally:
+                await sync_collector.close()
+        except Exception:
+            logger.warning("Light sync failed — continuing with existing data")
+
+        # 2. Elo update (incremental, fast if already current)
+        try:
+            await process_all_matches(db)
+        except Exception:
+            logger.warning("Elo update failed — continuing without Elo refresh")
+
+        # 3. Build/rebuild features for matches on this date
         start, end = _date_range(parsed_date)
+        try:
+            date_matches = (await db.execute(
+                select(Match).where(
+                    Match.match_date >= start,
+                    Match.match_date < end,
+                )
+            )).scalars().all()
+            if date_matches:
+                built = await bulk_build_features(db, date_matches)
+                logger.info("Built features for %d matches on %s", built, parsed_date)
+        except Exception:
+            logger.warning("Feature building failed — continuing with existing features")
+
+        # 4. Fetch latest odds
+        try:
+            odds_collector = OddsApiCollector()
+            try:
+                updated = await odds_collector.enrich_odds(db)
+                logger.info("Refreshed odds for %d matches", updated)
+            finally:
+                await odds_collector.close()
+        except Exception:
+            logger.warning("Failed to refresh odds — using cached odds")
+
+        # 5. Delete existing unresolved picks/predictions
         match_ids_stmt = select(Match.id).where(
             Match.match_date >= start,
             Match.match_date < end,
@@ -149,14 +196,12 @@ async def _get_picks_by_date_inner(parsed_date: date, force: bool, db: AsyncSess
         match_ids = (await db.execute(match_ids_stmt)).scalars().all()
         if match_ids:
             from sqlalchemy import delete
-            # Only delete unresolved picks
             await db.execute(
                 delete(Pick).where(
                     Pick.match_id.in_(match_ids),
                     Pick.outcome.is_(None),
                 )
             )
-            # Delete predictions that no longer have picks
             pred_with_picks = select(Pick.prediction_id).where(Pick.prediction_id.is_not(None))
             await db.execute(
                 delete(Prediction).where(
@@ -165,14 +210,6 @@ async def _get_picks_by_date_inner(parsed_date: date, force: bool, db: AsyncSess
                 )
             )
             await db.commit()
-
-        # Fetch latest odds before regenerating so predictions use current market prices
-        try:
-            odds_collector = OddsApiCollector()
-            updated = await odds_collector.enrich_odds(db)
-            logger.info("Refreshed odds for %d matches before regeneration", updated)
-        except Exception:
-            logger.warning("Failed to refresh odds before regeneration — using cached odds")
 
     # Check for existing picks first
     picks = await _get_picks_for_date(parsed_date, db)

@@ -166,6 +166,11 @@ class FootballDataCollector(BaseCollector):
         await session.commit()
         logger.info("Synced matches for %s", competition_code)
 
+    async def sync_matches_only(self, session: AsyncSession):
+        """Light sync: only match data for current season (skips competitions/teams)."""
+        for code in COMPETITIONS:
+            await self.sync_matches(session, code, season="2025")
+
     async def sync_all(self, session: AsyncSession):
         """Full sync: competitions → teams → matches."""
         await self.sync_competitions(session)

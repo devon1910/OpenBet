@@ -98,7 +98,14 @@ async def generate_predictions_and_picks(
             },
         })
 
-    reasoning_results = await get_batch_reasoning(claude_inputs)
+    try:
+        reasoning_results = await get_batch_reasoning(claude_inputs)
+    except Exception:
+        logger.warning("Claude reasoning failed, proceeding without adjustments")
+        reasoning_results = [
+            {"confidence_adjustment": 0, "reasoning": "", "flags": [], "unpredictable": False}
+            for _ in claude_inputs
+        ]
 
     # Process each match with its reasoning
     all_candidates = []

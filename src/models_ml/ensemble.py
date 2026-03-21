@@ -82,14 +82,16 @@ def load_meta_learner(version: str = "v1") -> LogisticRegression | None:
 
 def _fallback_blend(
     poisson_probs: np.ndarray,
-    xgb_probs: np.ndarray,
+    xgb_probs: np.ndarray | None = None,
     odds_probs: np.ndarray | None = None,
 ) -> np.ndarray:
     """Simple average when meta-learner is unavailable."""
+    components = [poisson_probs]
+    if xgb_probs is not None:
+        components.append(xgb_probs)
     if odds_probs is not None:
-        combined = (poisson_probs + xgb_probs + odds_probs) / 3.0
-    else:
-        combined = (poisson_probs + xgb_probs) / 2.0
+        components.append(odds_probs)
+    combined = sum(components) / len(components)
     # Normalize rows
     row_sums = combined.sum(axis=1, keepdims=True)
     row_sums[row_sums == 0] = 1.0
@@ -112,9 +114,14 @@ def ensemble_predict(
     Returns:
         List of dicts with poisson_*, xgb_*, ensemble_* probabilities.
     """
-    # XGBoost predictions
-    xgb_model = load_model(model_version)
-    xgb_probs = predict(xgb_model, features_df)
+    # XGBoost predictions (may not be available if model hasn't been trained yet)
+    try:
+        xgb_model = load_model(model_version)
+        xgb_probs = predict(xgb_model, features_df)
+    except FileNotFoundError:
+        logger.warning("XGBoost model %s not found — using Poisson only", model_version)
+        xgb_model = None
+        xgb_probs = None
 
     # Poisson predictions for each row
     poisson_list = []
@@ -145,8 +152,8 @@ def ensemble_predict(
             odds_raw[invalid] = 1 / 3
             odds_probs = odds_raw.values
 
-    # Try stacking meta-learner
-    meta_model = load_meta_learner(model_version)
+    # Try stacking meta-learner (only if XGBoost is available)
+    meta_model = load_meta_learner(model_version) if xgb_probs is not None else None
     if meta_model is not None:
         meta_X = _build_meta_features(poisson_probs, xgb_probs, odds_probs)
         # Handle feature count mismatch (model trained with/without odds)
@@ -167,14 +174,17 @@ def ensemble_predict(
     results = []
     for i in range(len(features_df)):
         e_home, e_draw, e_away = ensemble_probs[i]
+        xgb_h = float(xgb_probs[i][0]) if xgb_probs is not None else None
+        xgb_d = float(xgb_probs[i][1]) if xgb_probs is not None else None
+        xgb_a = float(xgb_probs[i][2]) if xgb_probs is not None else None
 
         results.append({
             "poisson_home": float(poisson_probs[i][0]),
             "poisson_draw": float(poisson_probs[i][1]),
             "poisson_away": float(poisson_probs[i][2]),
-            "xgb_home": float(xgb_probs[i][0]),
-            "xgb_draw": float(xgb_probs[i][1]),
-            "xgb_away": float(xgb_probs[i][2]),
+            "xgb_home": xgb_h,
+            "xgb_draw": xgb_d,
+            "xgb_away": xgb_a,
             "ensemble_home": float(e_home),
             "ensemble_draw": float(e_draw),
             "ensemble_away": float(e_away),

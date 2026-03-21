@@ -93,9 +93,17 @@ async def _run_predictions_for_date(target_date: date, db: AsyncSession) -> list
     if not pick_objects:
         return []
 
-    # Format output
+    # Re-fetch picks with relationships eagerly loaded for formatting
     output = []
-    for pick in pick_objects:
+    pick_ids = [p.id for p in pick_objects]
+    fresh_picks = (await db.execute(
+        select(Pick)
+        .where(Pick.id.in_(pick_ids))
+        .options(joinedload(Pick.prediction))
+        .order_by(Pick.confidence.desc())
+    )).scalars().unique().all()
+
+    for pick in fresh_picks:
         match = (await db.execute(
             select(Match)
             .where(Match.id == pick.match_id)

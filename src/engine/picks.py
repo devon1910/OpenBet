@@ -53,13 +53,10 @@ async def generate_predictions_and_picks(
     )
 
     if target_date is not None:
-        # Predict matches on the given date that haven't kicked off yet
+        # Predict all matches on the given date (regardless of kickoff time)
         start = datetime(target_date.year, target_date.month, target_date.day, tzinfo=timezone.utc)
         end = start + timedelta(days=1)
-        now = datetime.now(timezone.utc)
-        # For today, only include future matches; for other dates use start of day
-        cutoff = max(start, now) if target_date <= date_type.today() else start
-        stmt = stmt.where(Match.match_date >= cutoff, Match.match_date < end)
+        stmt = stmt.where(Match.match_date >= start, Match.match_date < end)
     else:
         # Default: only upcoming scheduled matches
         stmt = stmt.where(Match.status.in_(["SCHEDULED", "TIMED"]))

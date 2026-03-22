@@ -54,17 +54,14 @@ def _date_range(target_date: date) -> tuple[datetime, datetime]:
 
 
 async def _get_picks_for_date(target_date: date, db: AsyncSession) -> list[dict]:
-    """Get existing picks for a given date (only future matches for today)."""
+    """Get existing picks for a given date."""
     start, end = _date_range(target_date)
-    now = datetime.now(timezone.utc)
-    # For today/past dates, only show matches that haven't kicked off
-    cutoff = max(start, now) if target_date <= date.today() else start
 
     stmt = (
         select(Pick)
         .join(Match, Match.id == Pick.match_id)
         .where(
-            Match.match_date >= cutoff,
+            Match.match_date >= start,
             Match.match_date < end,
         )
         .options(joinedload(Pick.prediction))

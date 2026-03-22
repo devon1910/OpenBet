@@ -1,13 +1,15 @@
-"""Client for The Odds API (the-odds-api.com).
+"""Client for Odds API (odds-api.io).
 
 Fetches pre-match bookmaker odds for football matches and converts
 decimal odds to implied probabilities.
+
+Free tier: 5,000 requests/hour.
 """
 
 import logging
 import re
 import unicodedata
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +22,7 @@ from src.models.team import Team
 
 logger = logging.getLogger(__name__)
 
-# Known aliases: Odds API name -> football-data.org name
+# Known aliases: odds API name -> football-data.org name
 _TEAM_ALIASES = {
     "wolves": "wolverhampton wanderers",
     "man united": "manchester united",
@@ -59,16 +61,6 @@ _TEAM_ALIASES = {
     "paris saint germain": "paris saint-germain fc",
     "saint-etienne": "as saint-etienne",
     "st etienne": "as saint-etienne",
-    "psv": "psv eindhoven",
-    "ajax": "afc ajax",
-    "feyenoord": "feyenoord rotterdam",
-    "benfica": "sl benfica",
-    "porto": "fc porto",
-    "sporting cp": "sporting clube de portugal",
-    "sporting lisbon": "sporting clube de portugal",
-    "galatasaray": "galatasaray sk",
-    "fenerbahce": "fenerbahce sk",
-    "besiktas": "besiktas jk",
 }
 
 # Suffixes to strip for normalized matching
@@ -76,27 +68,26 @@ _STRIP_SUFFIXES = re.compile(
     r"\b(fc|cf|sc|afc|ssc|as|ss|sl|rc|ud|bsc|sk|jk|se)\b", re.IGNORECASE
 )
 
+# odds-api.io league slugs for top 5 leagues
+LEAGUE_SLUGS = [
+    "england-premier-league",
+    "spain-la-liga",
+    "germany-bundesliga",
+    "italy-serie-a",
+    "france-ligue-1",
+]
+
+# Bookmakers to use for odds averaging
+BOOKMAKERS = "Bet365,Stake"
+
 
 def _normalize_name(name: str) -> str:
     """Normalize a team name for matching: lowercase, strip accents, remove suffixes."""
-    # Lowercase
     name = name.lower().strip()
-    # Normalize unicode (é → e, ü → u, etc.)
     name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
-    # Strip common suffixes
     name = _STRIP_SUFFIXES.sub("", name).strip()
-    # Collapse whitespace
     name = re.sub(r"\s+", " ", name)
     return name
-
-# The Odds API sport keys for football leagues
-SPORT_KEYS = [
-    "soccer_epl",                        # Premier League
-    "soccer_spain_la_liga",              # La Liga
-    "soccer_germany_bundesliga",         # Bundesliga
-    "soccer_italy_serie_a",              # Serie A
-    "soccer_france_ligue_one",           # Ligue 1
-]
 
 
 def odds_to_implied_prob(decimal_odds: float) -> float:
@@ -115,40 +106,53 @@ def normalize_probs(home: float, draw: float, away: float) -> tuple[float, float
 
 
 class OddsApiCollector(BaseCollector):
-    """Collector for The Odds API."""
+    """Collector for odds-api.io."""
 
     def __init__(self):
         super().__init__(
-            base_url="https://api.the-odds-api.com",
+            base_url="https://api.odds-api.io/v3",
             headers={},
-            calls_per_minute=10,
+            calls_per_minute=60,  # 5000/hr ≈ 83/min, stay conservative
         )
         self.api_key = settings.odds_api_key
 
-    async def fetch_odds_for_sport(self, sport_key: str) -> list[dict]:
-        """Fetch upcoming match odds for a sport.
+    async def fetch_events(self, league_slug: str) -> list[dict]:
+        """Fetch upcoming events for a league.
 
-        Returns list of event dicts with bookmaker odds.
+        Returns list of event dicts with id, homeTeam, awayTeam, startsAt.
         """
         if not self.api_key:
             logger.warning("No odds API key configured")
             return []
 
-        data = await self.get(f"/v4/sports/{sport_key}/odds", params={
+        data = await self.get("/events", params={
             "apiKey": self.api_key,
-            "regions": "eu",
-            "markets": "h2h",
-            "oddsFormat": "decimal",
+            "sport": "football",
+            "league": league_slug,
+            "status": "pending",
         }, cache_ttl=300)
 
         return data if isinstance(data, list) else []
 
-    def _extract_best_odds(self, event: dict) -> dict | None:
-        """Extract averaged odds across bookmakers for an event.
+    async def fetch_odds_for_event(self, event_id: str) -> dict:
+        """Fetch odds for a specific event from selected bookmakers.
 
-        Averages across all bookmakers for more stable implied probabilities.
+        Returns dict with bookmaker odds.
         """
-        bookmakers = event.get("bookmakers", [])
+        data = await self.get("/odds", params={
+            "apiKey": self.api_key,
+            "eventId": event_id,
+            "bookmakers": BOOKMAKERS,
+        }, cache_ttl=300)
+
+        return data if isinstance(data, dict) else {}
+
+    def _extract_odds_from_event(self, odds_data: dict) -> dict | None:
+        """Extract home/draw/away probabilities from odds-api.io response.
+
+        Averages across available bookmakers (Bet365, Stake).
+        """
+        bookmakers = odds_data.get("bookmakers", {})
         if not bookmakers:
             return None
 
@@ -156,32 +160,33 @@ class OddsApiCollector(BaseCollector):
         draw_odds_list = []
         away_odds_list = []
 
-        home_team = event.get("home_team", "")
-
-        for bm in bookmakers:
-            for market in bm.get("markets", []):
-                if market.get("key") != "h2h":
+        for bm_name, markets in bookmakers.items():
+            if not isinstance(markets, list):
+                continue
+            for entry in markets:
+                market = entry.get("market", "")
+                odds_val = entry.get("odds")
+                if odds_val is None:
                     continue
-                outcomes = {o["name"]: o["price"] for o in market.get("outcomes", [])}
-                if "Draw" in outcomes:
-                    # Find home and away by matching team names
-                    for name, price in outcomes.items():
-                        if name == "Draw":
-                            draw_odds_list.append(price)
-                        elif name == home_team:
-                            home_odds_list.append(price)
-                        else:
-                            away_odds_list.append(price)
+                try:
+                    odds_float = float(odds_val)
+                except (ValueError, TypeError):
+                    continue
+
+                if market == "home":
+                    home_odds_list.append(odds_float)
+                elif market == "draw":
+                    draw_odds_list.append(odds_float)
+                elif market == "away":
+                    away_odds_list.append(odds_float)
 
         if not home_odds_list or not draw_odds_list or not away_odds_list:
             return None
 
-        # Average across bookmakers
         avg_home = sum(home_odds_list) / len(home_odds_list)
         avg_draw = sum(draw_odds_list) / len(draw_odds_list)
         avg_away = sum(away_odds_list) / len(away_odds_list)
 
-        # Convert to implied probabilities and normalize
         imp_home = odds_to_implied_prob(avg_home)
         imp_draw = odds_to_implied_prob(avg_draw)
         imp_away = odds_to_implied_prob(avg_away)
@@ -189,22 +194,19 @@ class OddsApiCollector(BaseCollector):
         prob_home, prob_draw, prob_away = normalize_probs(imp_home, imp_draw, imp_away)
 
         return {
-            "home_team": home_team,
-            "away_team": event.get("away_team", ""),
             "odds_home": prob_home,
             "odds_draw": prob_draw,
             "odds_away": prob_away,
-            "commence_time": event.get("commence_time", ""),
         }
 
-    async def enrich_odds(self, session: AsyncSession):
+    async def enrich_odds(self, session: AsyncSession) -> int:
         """Fetch odds for all supported leagues and update MatchFeature records."""
         total_updated = 0
 
         # Preload all teams into multiple lookup dicts for robust matching
         all_teams = (await session.execute(select(Team))).scalars().all()
-        team_by_exact = {}  # exact lowercase name -> team
-        team_by_normalized = {}  # normalized name -> team
+        team_by_exact = {}
+        team_by_normalized = {}
         for t in all_teams:
             team_by_exact[t.name.lower()] = t
             team_by_normalized[_normalize_name(t.name)] = t
@@ -236,34 +238,36 @@ class OddsApiCollector(BaseCollector):
         def find_team(name):
             """Match team name using exact, normalized, and partial strategies."""
             key = name.lower().strip()
-            # 1. Exact match (includes aliases)
             if key in team_by_exact:
                 return team_by_exact[key]
-            # 2. Normalized match (strips suffixes, accents)
             norm = _normalize_name(name)
             if norm in team_by_normalized:
                 return team_by_normalized[norm]
-            # 3. Partial match on normalized names
             for tname, team in team_by_normalized.items():
                 if norm in tname or tname in norm:
                     return team
             logger.debug("Could not match team: %s", name)
             return None
 
-        for sport_key in SPORT_KEYS:
+        for league_slug in LEAGUE_SLUGS:
             try:
-                events = await self.fetch_odds_for_sport(sport_key)
+                events = await self.fetch_events(league_slug)
             except Exception:
-                logger.exception("Failed to fetch odds for %s", sport_key)
+                logger.exception("Failed to fetch events for %s", league_slug)
                 continue
 
+            logger.info("Found %d events for %s", len(events), league_slug)
+
             for event in events:
-                odds = self._extract_best_odds(event)
-                if not odds:
+                event_id = event.get("id")
+                home_name = event.get("homeTeam", "")
+                away_name = event.get("awayTeam", "")
+
+                if not event_id or not home_name or not away_name:
                     continue
 
-                home_team = find_team(odds["home_team"])
-                away_team = find_team(odds["away_team"])
+                home_team = find_team(home_name)
+                away_team = find_team(away_name)
 
                 if not home_team or not away_team:
                     continue
@@ -273,11 +277,24 @@ class OddsApiCollector(BaseCollector):
                     continue
 
                 feature = feature_lookup.get(match.id)
-                if feature:
-                    feature.odds_home = odds["odds_home"]
-                    feature.odds_draw = odds["odds_draw"]
-                    feature.odds_away = odds["odds_away"]
-                    total_updated += 1
+                if not feature:
+                    continue
+
+                # Fetch odds for this event
+                try:
+                    odds_data = await self.fetch_odds_for_event(str(event_id))
+                except Exception:
+                    logger.warning("Failed to fetch odds for event %s", event_id)
+                    continue
+
+                odds = self._extract_odds_from_event(odds_data)
+                if not odds:
+                    continue
+
+                feature.odds_home = odds["odds_home"]
+                feature.odds_draw = odds["odds_draw"]
+                feature.odds_away = odds["odds_away"]
+                total_updated += 1
 
         await session.commit()
         logger.info("Updated odds for %d matches", total_updated)

@@ -80,6 +80,9 @@ class BaseCollector:
                 retry_after = resp.headers.get("Retry-After")
                 retry_secs = int(retry_after) if retry_after and retry_after.isdigit() else None
                 raise RateLimitError(url, retry_secs)
+            if resp.status == 401:
+                logger.warning("Skipping %s — HTTP 401 (invalid or missing API key)", url)
+                return {}
             if resp.status in (403, 404):
                 logger.warning("Skipping %s — HTTP %s (subscription tier or not found)", url, resp.status)
                 return {}

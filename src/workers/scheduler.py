@@ -183,6 +183,8 @@ async def _update_outcomes():
 
     logger.info("[scheduler] Resolving pick outcomes...")
     try:
+        # Sync match data first so statuses/scores are current
+        await _sync_data()
         async with async_session() as session:
             count = await update_outcomes(session)
         await _set_pipeline_status("outcomes", "ok", message=f"Resolved {count} outcomes.")
@@ -210,13 +212,15 @@ async def _evaluate_and_retrain():
 
 
 async def _run_pipeline():
-    """Full 6-hour pipeline: sync → features → odds → predictions."""
+    """Full 6-hour pipeline: sync → features → odds → predictions → resolve."""
     await _set_pipeline_status("pipeline", "running", message="Pipeline running...")
     try:
         await _sync_data()
         await _build_features()
         await _fetch_odds()
         await _generate_predictions()
+        # Resolve outcomes for any matches that finished since last run
+        await _update_outcomes()
         await _set_pipeline_status("pipeline", "ok", message="Pipeline completed successfully.")
     except Exception:
         logger.exception("[scheduler] Pipeline run failed")

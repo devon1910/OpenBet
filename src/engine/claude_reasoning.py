@@ -1,6 +1,6 @@
-"""Claude AI reasoning layer.
+"""AI reasoning layer (Gemini primary, Claude fallback).
 
-Uses Claude API to provide contextual analysis of match predictions,
+Uses an LLM to provide contextual analysis of match predictions,
 accounting for factors statistical models cannot capture:
 - Title race / relegation motivation
 - Player injuries and suspensions
@@ -11,8 +11,6 @@ accounting for factors statistical models cannot capture:
 
 import json
 import logging
-
-import anthropic
 
 from src.config import settings
 
@@ -49,24 +47,8 @@ _DEFAULT_REASONING = {
 }
 
 
-async def get_batch_reasoning(matches: list[dict]) -> list[dict]:
-    """Get Claude's contextual reasoning for multiple matches in a single API call.
-
-    Args:
-        matches: list of dicts with keys:
-            home_team, away_team, competition, model_probs, context
-
-    Returns:
-        list of dicts (same order) with confidence_adjustment, reasoning, flags, unpredictable
-    """
-    if not settings.anthropic_api_key:
-        logger.warning("No Anthropic API key configured, skipping reasoning")
-        return [dict(_DEFAULT_REASONING) for _ in matches]
-
-    if not matches:
-        return []
-
-    # Build a single prompt with all matches
+def _build_user_message(matches: list[dict]) -> str:
+    """Build the prompt from match data."""
     parts = []
     for i, m in enumerate(matches, 1):
         probs = m["model_probs"]
@@ -81,12 +63,82 @@ H2H: {ctx.get('h2h', 'N/A')}""")
 
     user_message = "\n\n".join(parts)
     user_message += f"\n\nAnalyze all {len(matches)} matches and respond with a JSON array."
+    return user_message
+
+
+def _parse_and_clamp(response_text: str, num_matches: int) -> list[dict] | None:
+    """Parse JSON response and clamp adjustments. Returns None on failure."""
+    # Strip markdown code fences if present
+    text = response_text.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+
+    results = json.loads(text)
+
+    if not isinstance(results, list):
+        return None
+
+    max_adj = settings.claude_max_adjustment
+    output = []
+    for i in range(num_matches):
+        if i < len(results):
+            r = results[i]
+            adj = r.get("confidence_adjustment", 0.0)
+            r["confidence_adjustment"] = max(-max_adj, min(max_adj, adj))
+            output.append(r)
+        else:
+            output.append(dict(_DEFAULT_REASONING))
+
+    return output
+
+
+async def _gemini_reasoning(matches: list[dict]) -> list[dict] | None:
+    """Try Gemini API. Returns None on failure."""
+    if not settings.gemini_api_key:
+        return None
 
     try:
+        from google import genai
+
+        client = genai.Client(api_key=settings.gemini_api_key)
+        user_message = _build_user_message(matches)
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=f"{SYSTEM_PROMPT}\n\n{user_message}",
+            config={
+                "response_mime_type": "application/json",
+                "max_output_tokens": 250 * len(matches),
+            },
+        )
+
+        return _parse_and_clamp(response.text, len(matches))
+
+    except json.JSONDecodeError:
+        logger.error("Failed to parse Gemini response as JSON")
+        return None
+    except Exception:
+        logger.exception("Gemini reasoning failed")
+        return None
+
+
+async def _claude_reasoning(matches: list[dict]) -> list[dict] | None:
+    """Try Claude API. Returns None on failure."""
+    if not settings.anthropic_api_key:
+        return None
+
+    try:
+        import anthropic
+
         client = anthropic.AsyncAnthropic(
             api_key=settings.anthropic_api_key,
             timeout=120.0,
         )
+        user_message = _build_user_message(matches)
+
         message = await client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=200 * len(matches),
@@ -94,42 +146,48 @@ H2H: {ctx.get('h2h', 'N/A')}""")
             messages=[{"role": "user", "content": user_message}],
         )
 
-        response_text = message.content[0].text
-        results = json.loads(response_text)
-
-        if not isinstance(results, list):
-            logger.error("Claude returned non-array response")
-            return [dict(_DEFAULT_REASONING) for _ in matches]
-
-        # Clamp adjustments and pad if Claude returned fewer results
-        max_adj = settings.claude_max_adjustment
-        output = []
-        for i in range(len(matches)):
-            if i < len(results):
-                r = results[i]
-                adj = r.get("confidence_adjustment", 0.0)
-                r["confidence_adjustment"] = max(-max_adj, min(max_adj, adj))
-                output.append(r)
-            else:
-                output.append(dict(_DEFAULT_REASONING))
-
-        return output
+        return _parse_and_clamp(message.content[0].text, len(matches))
 
     except json.JSONDecodeError:
-        logger.error("Failed to parse Claude batch response as JSON")
-        return [dict(_DEFAULT_REASONING) for _ in matches]
-    except anthropic.BadRequestError as e:
-        if "credit balance" in str(e).lower():
-            logger.warning("Anthropic API credits exhausted — skipping Claude reasoning")
-        else:
-            logger.exception("Claude BadRequestError")
-        return [dict(_DEFAULT_REASONING) for _ in matches]
-    except anthropic.RateLimitError:
-        logger.warning("Anthropic API rate limit reached — skipping Claude reasoning")
-        return [dict(_DEFAULT_REASONING) for _ in matches]
+        logger.error("Failed to parse Claude response as JSON")
+        return None
     except Exception:
-        logger.exception("Claude batch reasoning failed")
-        return [dict(_DEFAULT_REASONING) for _ in matches]
+        logger.exception("Claude reasoning failed")
+        return None
+
+
+async def get_batch_reasoning(matches: list[dict]) -> list[dict]:
+    """Get AI contextual reasoning for multiple matches.
+
+    Tries Gemini first (free tier), falls back to Claude, then returns defaults.
+
+    Args:
+        matches: list of dicts with keys:
+            home_team, away_team, competition, model_probs, context
+
+    Returns:
+        list of dicts (same order) with confidence_adjustment, reasoning, flags, unpredictable
+    """
+    if not matches:
+        return []
+
+    defaults = [dict(_DEFAULT_REASONING) for _ in matches]
+
+    # 1. Try Gemini (free)
+    result = await _gemini_reasoning(matches)
+    if result is not None:
+        logger.info("Reasoning provided by Gemini")
+        return result
+
+    # 2. Try Claude (paid fallback)
+    result = await _claude_reasoning(matches)
+    if result is not None:
+        logger.info("Reasoning provided by Claude")
+        return result
+
+    # 3. No AI available
+    logger.warning("No AI reasoning available — skipping adjustments")
+    return defaults
 
 
 async def get_match_reasoning(
@@ -139,7 +197,7 @@ async def get_match_reasoning(
     model_probs: dict,
     context: dict,
 ) -> dict:
-    """Get Claude's contextual reasoning for a single match.
+    """Get AI contextual reasoning for a single match.
 
     Convenience wrapper around get_batch_reasoning for single-match use.
     """

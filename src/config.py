@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     football_data_api_key: str = ""
     api_football_key: str = ""
     anthropic_api_key: str = ""
+    gemini_api_key: str = ""
     odds_api_key: str = ""
 
     # App

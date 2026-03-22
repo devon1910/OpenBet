@@ -224,13 +224,15 @@
     const dateInput = document.getElementById('matchDate');
     const today = new Date().toISOString().split('T')[0];
     dateInput.value = today;
-    dateInput.min = today;
+    const minDate = new Date();
+    minDate.setDate(minDate.getDate() - 7);
+    dateInput.min = minDate.toISOString().split('T')[0];
 
     function changeDay(delta) {
         const d = new Date(dateInput.value + 'T12:00:00');
         d.setDate(d.getDate() + delta);
         const newDate = d.toISOString().split('T')[0];
-        if (newDate < today) return;
+        if (newDate < dateInput.min) return;
         dateInput.value = newDate;
         updatePrevBtn();
         fetchPicks();
@@ -239,7 +241,7 @@
     function goToday() { dateInput.value = today; updatePrevBtn(); fetchPicks(); }
 
     function updatePrevBtn() {
-        document.getElementById('prevDay').disabled = (dateInput.value <= today);
+        document.getElementById('prevDay').disabled = (dateInput.value <= dateInput.min);
     }
     updatePrevBtn();
 

@@ -48,6 +48,21 @@ async def update_outcomes(session: AsyncSession) -> int:
 
     Returns number of picks updated.
     """
+    # Diagnostic: how many unresolved picks exist?
+    from sqlalchemy import func
+    total_unresolved = (await session.execute(
+        select(func.count(Pick.id)).where(Pick.outcome.is_(None))
+    )).scalar() or 0
+
+    total_finished = (await session.execute(
+        select(func.count(Match.id)).where(Match.status == "FINISHED")
+    )).scalar() or 0
+
+    logger.info(
+        "Resolve check: %d unresolved picks, %d finished matches",
+        total_unresolved, total_finished,
+    )
+
     stmt = (
         select(Pick, Match)
         .join(Match, Match.id == Pick.match_id)

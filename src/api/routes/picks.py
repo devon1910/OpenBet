@@ -185,34 +185,42 @@ async def _get_picks_by_date_inner(parsed_date: date, force: bool, db: AsyncSess
         except Exception:
             logger.warning("Failed to refresh odds — using cached odds")
 
-        # 5. Delete existing unresolved picks/predictions
-        match_ids_stmt = select(Match.id).where(
-            Match.match_date >= start,
-            Match.match_date < end,
-        )
-        match_ids = (await db.execute(match_ids_stmt)).scalars().all()
-        if match_ids:
-            from sqlalchemy import delete
-            await db.execute(
-                delete(Pick).where(
-                    Pick.match_id.in_(match_ids),
-                    Pick.outcome.is_(None),
-                )
-            )
-            pred_with_picks = select(Pick.prediction_id).where(Pick.prediction_id.is_not(None))
-            await db.execute(
-                delete(Prediction).where(
-                    Prediction.match_id.in_(match_ids),
-                    Prediction.id.notin_(pred_with_picks),
-                )
-            )
-            await db.commit()
+        # 5. Generate new picks, then replace old unresolved ones only on success
+        new_picks = await _run_predictions_for_date(parsed_date, db)
 
-    # Check for existing picks first
+        if new_picks:
+            # Delete old unresolved picks (new ones already saved)
+            match_ids_stmt = select(Match.id).where(
+                Match.match_date >= start,
+                Match.match_date < end,
+            )
+            match_ids = (await db.execute(match_ids_stmt)).scalars().all()
+            if match_ids:
+                from sqlalchemy import delete
+                new_pick_ids = [p["id"] for p in new_picks]
+                await db.execute(
+                    delete(Pick).where(
+                        Pick.match_id.in_(match_ids),
+                        Pick.outcome.is_(None),
+                        Pick.id.notin_(new_pick_ids),
+                    )
+                )
+                # Clean up orphaned predictions
+                pred_with_picks = select(Pick.prediction_id).where(Pick.prediction_id.is_not(None))
+                await db.execute(
+                    delete(Prediction).where(
+                        Prediction.match_id.in_(match_ids),
+                        Prediction.id.notin_(pred_with_picks),
+                    )
+                )
+                await db.commit()
+            return {"date": str(parsed_date), "picks": new_picks, "count": len(new_picks)}
+
+    # No force, or force failed — return existing picks
     picks = await _get_picks_for_date(parsed_date, db)
 
     if not picks:
-        # Run the prediction engine for this date
+        # No existing picks — try generating
         picks = await _run_predictions_for_date(parsed_date, db)
 
     if not picks:

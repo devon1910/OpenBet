@@ -18,18 +18,13 @@ from src.models.team import Competition, Team
 
 logger = logging.getLogger(__name__)
 
-# football-data.org competition codes
-# Free tier covers: PL, PD, BL1, SA, FL1, DED, PPL, ELC, CL
+# football-data.org competition codes — top 5 leagues only
 COMPETITIONS = {
     "PL":  "Premier League",
     "PD":  "La Liga",
     "BL1": "Bundesliga",
     "SA":  "Serie A",
     "FL1": "Ligue 1",
-    "DED": "Eredivisie",
-    "PPL": "Primeira Liga",
-    "ELC": "Championship",
-    "CL":  "Champions League",
 }
 
 

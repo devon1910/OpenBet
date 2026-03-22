@@ -44,7 +44,7 @@ class FootballDataCollector(BaseCollector):
     async def sync_competitions(self, session: AsyncSession):
         """Fetch and upsert competitions."""
         for code, name in COMPETITIONS.items():
-            data = await self.get(f"/competitions/{code}")
+            data = await self.get(f"/competitions/{code}", cache_ttl=3600)
             season = data.get("currentSeason", {})
             season_str = str(season.get("startDate", ""))[:4] if season else ""
 
@@ -74,7 +74,7 @@ class FootballDataCollector(BaseCollector):
             logger.warning("Competition %s not found in DB", competition_code)
             return
 
-        data = await self.get(f"/competitions/{competition_code}/teams")
+        data = await self.get(f"/competitions/{competition_code}/teams", cache_ttl=3600)
         for team_data in data.get("teams", []):
             ext_id = str(team_data["id"])
             existing = await session.execute(
@@ -125,7 +125,7 @@ class FootballDataCollector(BaseCollector):
         if matchday:
             params["matchday"] = matchday
 
-        data = await self.get(f"/competitions/{competition_code}/matches", params=params)
+        data = await self.get(f"/competitions/{competition_code}/matches", params=params, cache_ttl=300)
 
         for m in data.get("matches", []):
             ext_id = str(m["id"])

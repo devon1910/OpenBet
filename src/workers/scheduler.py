@@ -93,6 +93,7 @@ async def get_pipeline_status() -> dict:
 
 
 async def _sync_data():
+    from src.collectors.base import RateLimitError
     from src.collectors.football_data import FootballDataCollector, COMPETITIONS
     from src.database import async_session
 
@@ -105,6 +106,8 @@ async def _sync_data():
                 await collector.sync_teams(session, code)
                 for season in ["2024", "2025"]:
                     await collector.sync_matches(session, code, season=season)
+    except RateLimitError as e:
+        logger.warning("[scheduler] Rate limit hit during sync: %s — partial sync saved", e)
     finally:
         await collector.close()
     logger.info("[scheduler] Match data sync complete.")

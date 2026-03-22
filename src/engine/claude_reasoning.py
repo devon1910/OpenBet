@@ -83,7 +83,10 @@ H2H: {ctx.get('h2h', 'N/A')}""")
     user_message += f"\n\nAnalyze all {len(matches)} matches and respond with a JSON array."
 
     try:
-        client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+        client = anthropic.AsyncAnthropic(
+            api_key=settings.anthropic_api_key,
+            timeout=120.0,
+        )
         message = await client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=200 * len(matches),
@@ -114,6 +117,15 @@ H2H: {ctx.get('h2h', 'N/A')}""")
 
     except json.JSONDecodeError:
         logger.error("Failed to parse Claude batch response as JSON")
+        return [dict(_DEFAULT_REASONING) for _ in matches]
+    except anthropic.BadRequestError as e:
+        if "credit balance" in str(e).lower():
+            logger.warning("Anthropic API credits exhausted — skipping Claude reasoning")
+        else:
+            logger.exception("Claude BadRequestError")
+        return [dict(_DEFAULT_REASONING) for _ in matches]
+    except anthropic.RateLimitError:
+        logger.warning("Anthropic API rate limit reached — skipping Claude reasoning")
         return [dict(_DEFAULT_REASONING) for _ in matches]
     except Exception:
         logger.exception("Claude batch reasoning failed")

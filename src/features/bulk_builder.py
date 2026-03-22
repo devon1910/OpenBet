@@ -20,6 +20,29 @@ from src.models.match import Match
 logger = logging.getLogger(__name__)
 
 
+async def _commit_batch(session, batch, count, errors, total, status_callback):
+    """Commit a batch of features, falling back to one-at-a-time on duplicate key."""
+    try:
+        session.add_all(batch)
+        await session.commit()
+        count += len(batch)
+        if status_callback:
+            await status_callback(f"Built {count}/{total} features...")
+        logger.info("[bulk] Committed batch %d/%d", count, total)
+    except Exception:
+        await session.rollback()
+        # Retry individually — skip duplicates
+        for feature in batch:
+            try:
+                session.add(feature)
+                await session.commit()
+                count += 1
+            except Exception:
+                await session.rollback()
+                errors += 1
+    return count, errors
+
+
 def _weighted_form(points: list[int]) -> float:
     """Exponential decay weighted form from most recent to oldest."""
     if not points:
@@ -310,29 +333,12 @@ async def bulk_build_features(
             continue
 
         if len(batch) >= batch_size:
-            try:
-                session.add_all(batch)
-                await session.commit()
-                count += len(batch)
-                if status_callback:
-                    await status_callback(f"Built {count}/{total} features...")
-                logger.info("[bulk] Committed batch %d/%d", count, total)
-            except Exception:
-                logger.exception("[bulk] Batch commit failed at %d", count)
-                await session.rollback()
-                errors += len(batch)
+            count, errors = await _commit_batch(session, batch, count, errors, total, status_callback)
             batch = []
 
     # Final batch
     if batch:
-        try:
-            session.add_all(batch)
-            await session.commit()
-            count += len(batch)
-        except Exception:
-            logger.exception("[bulk] Final batch commit failed")
-            await session.rollback()
-            errors += len(batch)
+        count, errors = await _commit_batch(session, batch, count, errors, total, status_callback)
 
     logger.info("[bulk] Built %d features (%d errors)", count, errors)
     return count

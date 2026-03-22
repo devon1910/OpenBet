@@ -146,7 +146,7 @@ class OddsApiCollector(BaseCollector):
             "regions": "eu",
             "markets": "h2h",
             "oddsFormat": "decimal",
-        })
+        }, cache_ttl=300)
 
         return data if isinstance(data, list) else []
 

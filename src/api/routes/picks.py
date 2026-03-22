@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from src.api.deps import get_db
+from src.collectors.base import RateLimitError
 from src.collectors.football_data import FootballDataCollector
 from src.collectors.odds_api import OddsApiCollector
 from src.engine.picks import generate_predictions_and_picks
@@ -150,6 +151,10 @@ async def _get_picks_by_date_inner(parsed_date: date, force: bool, db: AsyncSess
                 logger.info("Light sync complete")
             finally:
                 await sync_collector.close()
+        except RateLimitError as e:
+            logger.warning("Rate limit hit during sync: %s", e)
+            return {"date": str(parsed_date), "picks": [], "count": 0,
+                    "message": "API rate limit reached. Please wait a few minutes and try again."}
         except Exception:
             logger.warning("Light sync failed — continuing with existing data")
 
@@ -162,6 +167,8 @@ async def _get_picks_by_date_inner(parsed_date: date, force: bool, db: AsyncSess
         # 3. Build/rebuild features for matches on this date
         start, end = _date_range(parsed_date)
         try:
+            from src.models.feature import MatchFeature
+            from sqlalchemy import delete as sa_delete
             date_matches = (await db.execute(
                 select(Match).where(
                     Match.match_date >= start,
@@ -169,6 +176,12 @@ async def _get_picks_by_date_inner(parsed_date: date, force: bool, db: AsyncSess
                 )
             )).scalars().all()
             if date_matches:
+                # Delete existing features so rebuild doesn't hit unique constraint
+                match_ids_for_features = [m.id for m in date_matches]
+                await db.execute(
+                    sa_delete(MatchFeature).where(MatchFeature.match_id.in_(match_ids_for_features))
+                )
+                await db.commit()
                 built = await bulk_build_features(db, date_matches)
                 logger.info("Built features for %d matches on %s", built, parsed_date)
         except Exception:
@@ -182,6 +195,8 @@ async def _get_picks_by_date_inner(parsed_date: date, force: bool, db: AsyncSess
                 logger.info("Refreshed odds for %d matches", updated)
             finally:
                 await odds_collector.close()
+        except RateLimitError as e:
+            logger.warning("Rate limit hit during odds fetch: %s", e)
         except Exception:
             logger.warning("Failed to refresh odds — using cached odds")
 

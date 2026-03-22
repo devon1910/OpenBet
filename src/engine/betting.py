@@ -34,32 +34,39 @@ def evaluate_betting_opportunity(
 
     picks = []
 
+    has_odds = odds_home and odds_home > 0
+
     # odds_home/draw/away are already normalized implied probabilities from the odds
     # collector — use them directly (fall back to model probs when no odds available)
-    market_home = odds_home if odds_home and odds_home > 0 else prob_home
+    market_home = odds_home if has_odds else prob_home
     market_draw = odds_draw if odds_draw and odds_draw > 0 else prob_draw
     market_away = odds_away if odds_away and odds_away > 0 else prob_away
 
+    # When no odds are available, require a higher threshold since we can't
+    # validate edge against the market — avoids flooding with low-quality picks
+    sw_threshold = settings.straight_win_threshold if has_odds else settings.straight_win_threshold + 0.10
+    dc_threshold = settings.double_chance_threshold if has_odds else settings.double_chance_threshold + 0.05
+
     # Straight win checks
-    if prob_home > settings.straight_win_threshold:
+    if prob_home > sw_threshold:
         edge = prob_home - market_home
-        if edge >= settings.min_value_edge or odds_home is None:
+        if edge >= settings.min_value_edge or not has_odds:
             picks.append({
                 "pick_type": "STRAIGHT_WIN",
                 "pick_value": "HOME",
                 "confidence": prob_home,
-                "edge": edge,
+                "edge": edge if has_odds else 0.0,
                 "odds_decimal": 1.0 / market_home if market_home > 0 else None,
             })
 
-    if prob_away > settings.straight_win_threshold:
+    if prob_away > sw_threshold:
         edge = prob_away - market_away
-        if edge >= settings.min_value_edge or odds_away is None:
+        if edge >= settings.min_value_edge or not has_odds:
             picks.append({
                 "pick_type": "STRAIGHT_WIN",
                 "pick_value": "AWAY",
                 "confidence": prob_away,
-                "edge": edge,
+                "edge": edge if has_odds else 0.0,
                 "odds_decimal": 1.0 / market_away if market_away > 0 else None,
             })
 
@@ -71,25 +78,25 @@ def evaluate_betting_opportunity(
     market_home_not_lose = market_home + market_draw
     market_away_not_lose = market_away + market_draw
 
-    if home_not_lose > settings.double_chance_threshold:
+    if home_not_lose > dc_threshold:
         edge = home_not_lose - market_home_not_lose
-        if edge >= settings.min_value_edge or odds_home is None:
+        if edge >= settings.min_value_edge or not has_odds:
             picks.append({
                 "pick_type": "DOUBLE_CHANCE",
                 "pick_value": "1X",
                 "confidence": home_not_lose,
-                "edge": edge,
+                "edge": edge if has_odds else 0.0,
                 "odds_decimal": 1.0 / market_home_not_lose if market_home_not_lose > 0 else None,
             })
 
-    if away_not_lose > settings.double_chance_threshold:
+    if away_not_lose > dc_threshold:
         edge = away_not_lose - market_away_not_lose
-        if edge >= settings.min_value_edge or odds_away is None:
+        if edge >= settings.min_value_edge or not has_odds:
             picks.append({
                 "pick_type": "DOUBLE_CHANCE",
                 "pick_value": "X2",
                 "confidence": away_not_lose,
-                "edge": edge,
+                "edge": edge if has_odds else 0.0,
                 "odds_decimal": 1.0 / market_away_not_lose if market_away_not_lose > 0 else None,
             })
 

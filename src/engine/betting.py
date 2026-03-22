@@ -44,8 +44,8 @@ def evaluate_betting_opportunity(
 
     # When no odds are available, require a higher threshold since we can't
     # validate edge against the market — avoids flooding with low-quality picks
-    sw_threshold = settings.straight_win_threshold if has_odds else settings.straight_win_threshold + 0.10
-    dc_threshold = settings.double_chance_threshold if has_odds else settings.double_chance_threshold + 0.05
+    sw_threshold = settings.straight_win_threshold if has_odds else settings.straight_win_threshold + 0.05
+    dc_threshold = settings.double_chance_threshold if has_odds else settings.double_chance_threshold + 0.03
 
     # Straight win checks
     if prob_home > sw_threshold:

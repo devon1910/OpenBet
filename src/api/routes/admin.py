@@ -269,11 +269,21 @@ async def _run_train():
 
 
 async def _run_resolve():
+    from src.collectors.football_data import FootballDataCollector
     from src.database import async_session
     from src.learning.tracker import update_outcomes
 
-    await _set_job_status("resolve-outcomes", "running", "Resolving outcomes...")
+    await _set_job_status("resolve-outcomes", "running", "Syncing match results...")
     try:
+        # Sync match data first so statuses and scores are up to date
+        collector = FootballDataCollector()
+        try:
+            async with async_session() as session:
+                await collector.sync_matches_only(session)
+        finally:
+            await collector.close()
+
+        await _set_job_status("resolve-outcomes", "running", "Resolving outcomes...")
         async with async_session() as session:
             count = await update_outcomes(session)
         await _set_job_status("resolve-outcomes", "ok", f"Resolved outcomes for {count} picks.")
@@ -388,8 +398,9 @@ async def system_status():
         info["db"] = f"error: {e}"
 
     from pathlib import Path
-    info["xgb_model"] = Path("trained_models/xgboost_v1.joblib").exists()
-    info["meta_learner"] = Path("trained_models/meta_learner_v1.joblib").exists()
+    project_root = Path(__file__).resolve().parent.parent.parent.parent
+    info["xgb_model"] = (project_root / "trained_models" / "xgboost_v1.joblib").exists()
+    info["meta_learner"] = (project_root / "trained_models" / "meta_learner_v1.joblib").exists()
 
     # Read all job statuses from DB
     try:

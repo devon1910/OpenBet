@@ -18,7 +18,7 @@ from src.models_ml.xgboost_model import load_model, predict, FEATURE_COLUMNS
 
 logger = logging.getLogger(__name__)
 
-META_MODEL_DIR = Path("trained_models")
+META_MODEL_DIR = Path(__file__).resolve().parent.parent.parent / "trained_models"
 
 
 def _build_meta_features(

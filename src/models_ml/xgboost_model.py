@@ -40,7 +40,7 @@ FEATURE_COLUMNS = [
     "odds_away",
 ]
 
-MODEL_DIR = Path("trained_models")
+MODEL_DIR = Path(__file__).resolve().parent.parent.parent / "trained_models"
 
 
 def create_model() -> XGBClassifier:

@@ -187,11 +187,11 @@ async def _get_picks_by_date_inner(parsed_date: date, force: bool, db: AsyncSess
         except Exception:
             logger.warning("Feature building failed — continuing with existing features")
 
-        # 4. Fetch latest odds
+        # 4. Fetch latest odds (only for this date's matches)
         try:
             odds_collector = OddsApiCollector()
             try:
-                updated = await odds_collector.enrich_odds(db)
+                updated = await odds_collector.enrich_odds(db, target_date=parsed_date)
                 logger.info("Refreshed odds for %d matches", updated)
             finally:
                 await odds_collector.close()

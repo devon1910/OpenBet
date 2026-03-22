@@ -126,7 +126,7 @@ class OddsApiCollector(BaseCollector):
             "sport": "football",
             "league": league_slug,
             "status": "pending",
-        }, cache_ttl=300)
+        }, cache_ttl=1800)  # 30 min — events list rarely changes
 
         return data if isinstance(data, list) else []
 
@@ -136,7 +136,7 @@ class OddsApiCollector(BaseCollector):
             "apiKey": self.api_key,
             "eventId": event_id,
             "bookmakers": BOOKMAKERS,
-        }, cache_ttl=300)
+        }, cache_ttl=900)  # 15 min — odds don't change that fast
 
         return data if isinstance(data, dict) else {}
 
@@ -205,8 +205,18 @@ class OddsApiCollector(BaseCollector):
             "odds_away": prob_away,
         }
 
-    async def enrich_odds(self, session: AsyncSession) -> int:
-        """Fetch odds for all supported leagues and update MatchFeature records."""
+    async def enrich_odds(
+        self, session: AsyncSession, target_date: "date | None" = None
+    ) -> int:
+        """Fetch odds for supported leagues and update MatchFeature records.
+
+        Args:
+            session: DB session
+            target_date: If provided, only enrich matches on this date (saves API calls).
+                         If None, enriches all scheduled matches.
+        """
+        from datetime import datetime, timedelta, timezone, date as date_type
+
         total_updated = 0
 
         # Preload all teams into multiple lookup dicts for robust matching
@@ -225,21 +235,40 @@ class OddsApiCollector(BaseCollector):
             if norm in team_by_normalized:
                 team_by_exact[alias] = team_by_normalized[norm]
 
-        # Preload all scheduled matches indexed by (home_team_id, away_team_id)
-        scheduled = (await session.execute(
-            select(Match).where(Match.status.in_(["SCHEDULED", "TIMED"]))
-        )).scalars().all()
+        # Preload scheduled matches — filter by date if provided
+        match_query = select(Match).where(Match.status.in_(["SCHEDULED", "TIMED"]))
+        if target_date:
+            day_start = datetime(target_date.year, target_date.month, target_date.day, tzinfo=timezone.utc)
+            day_end = day_start + timedelta(days=1)
+            match_query = match_query.where(Match.match_date >= day_start, Match.match_date < day_end)
+
+        scheduled = (await session.execute(match_query)).scalars().all()
+        if not scheduled:
+            logger.info("No scheduled matches%s — skipping odds fetch", f" on {target_date}" if target_date else "")
+            return 0
+
         match_lookup = {(m.home_team_id, m.away_team_id): m for m in scheduled}
 
-        # Preload all features indexed by match_id
+        # Preload features — skip matches that already have fresh odds
         feature_ids = [m.id for m in scheduled]
-        if feature_ids:
-            features = (await session.execute(
-                select(MatchFeature).where(MatchFeature.match_id.in_(feature_ids))
-            )).scalars().all()
-            feature_lookup = {f.match_id: f for f in features}
-        else:
-            feature_lookup = {}
+        features = (await session.execute(
+            select(MatchFeature).where(MatchFeature.match_id.in_(feature_ids))
+        )).scalars().all()
+        feature_lookup = {f.match_id: f for f in features}
+
+        # Track which matches actually need odds (don't have them yet)
+        needs_odds = set()
+        for m in scheduled:
+            f = feature_lookup.get(m.id)
+            if f and f.odds_home is not None:
+                continue  # already has odds — skip
+            needs_odds.add((m.home_team_id, m.away_team_id))
+
+        if not needs_odds:
+            logger.info("All %d matches already have odds — skipping API calls", len(scheduled))
+            return 0
+
+        logger.info("%d of %d matches need odds", len(needs_odds), len(scheduled))
 
         def find_team(name):
             """Match team name using exact, normalized, and partial strategies."""
@@ -256,6 +285,9 @@ class OddsApiCollector(BaseCollector):
             return None
 
         for league_slug in LEAGUE_SLUGS:
+            if not needs_odds:
+                break  # all matches covered
+
             try:
                 events = await self.fetch_events(league_slug)
             except Exception:
@@ -279,7 +311,15 @@ class OddsApiCollector(BaseCollector):
                     logger.debug("Unmatched: %s vs %s", home_name, away_name)
                     continue
 
-                match = match_lookup.get((home_team.id, away_team.id))
+                team_key = (home_team.id, away_team.id)
+                if team_key not in needs_odds:
+                    # Already have odds or not in our target set
+                    match = match_lookup.get(team_key)
+                    if not match:
+                        continue
+                    continue
+
+                match = match_lookup.get(team_key)
                 if not match:
                     continue
 
@@ -302,6 +342,7 @@ class OddsApiCollector(BaseCollector):
                 feature.odds_draw = odds["odds_draw"]
                 feature.odds_away = odds["odds_away"]
                 total_updated += 1
+                needs_odds.discard(team_key)
 
         await session.commit()
         logger.info("Updated odds for %d matches", total_updated)

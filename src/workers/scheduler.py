@@ -118,11 +118,13 @@ async def _fetch_odds():
     from src.collectors.odds_api import OddsApiCollector
     from src.database import async_session
 
-    logger.info("[scheduler] Fetching odds...")
+    from datetime import date
+
+    logger.info("[scheduler] Fetching odds for today...")
     collector = OddsApiCollector()
     try:
         async with async_session() as session:
-            count = await collector.enrich_odds(session)
+            count = await collector.enrich_odds(session, target_date=date.today())
         logger.info("[scheduler] Odds updated for %d matches.", count)
     finally:
         await collector.close()

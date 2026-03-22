@@ -9,7 +9,6 @@ Free tier: 5,000 requests/hour.
 import logging
 import re
 import unicodedata
-from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -77,7 +76,7 @@ LEAGUE_SLUGS = [
     "france-ligue-1",
 ]
 
-# Bookmakers to use for odds averaging
+# Bookmakers to average odds from
 BOOKMAKERS = "Bet365,Stake"
 
 
@@ -117,10 +116,7 @@ class OddsApiCollector(BaseCollector):
         self.api_key = settings.odds_api_key
 
     async def fetch_events(self, league_slug: str) -> list[dict]:
-        """Fetch upcoming events for a league.
-
-        Returns list of event dicts with id, homeTeam, awayTeam, startsAt.
-        """
+        """Fetch upcoming events for a league."""
         if not self.api_key:
             logger.warning("No odds API key configured")
             return []
@@ -135,10 +131,7 @@ class OddsApiCollector(BaseCollector):
         return data if isinstance(data, list) else []
 
     async def fetch_odds_for_event(self, event_id: str) -> dict:
-        """Fetch odds for a specific event from selected bookmakers.
-
-        Returns dict with bookmaker odds.
-        """
+        """Fetch odds for a specific event from selected bookmakers."""
         data = await self.get("/odds", params={
             "apiKey": self.api_key,
             "eventId": event_id,
@@ -147,10 +140,18 @@ class OddsApiCollector(BaseCollector):
 
         return data if isinstance(data, dict) else {}
 
-    def _extract_odds_from_event(self, odds_data: dict) -> dict | None:
+    def _extract_odds(self, odds_data: dict) -> dict | None:
         """Extract home/draw/away probabilities from odds-api.io response.
 
-        Averages across available bookmakers (Bet365, Stake).
+        Response structure:
+        {
+          "bookmakers": {
+            "Bet365": [
+              {"name": "ML", "odds": [{"home": "1.50", "draw": "3.20", "away": "4.50"}], ...}
+            ],
+            "Stake": [...]
+          }
+        }
         """
         bookmakers = odds_data.get("bookmakers", {})
         if not bookmakers:
@@ -163,30 +164,35 @@ class OddsApiCollector(BaseCollector):
         for bm_name, markets in bookmakers.items():
             if not isinstance(markets, list):
                 continue
-            for entry in markets:
-                market = entry.get("market", "")
-                odds_val = entry.get("odds")
-                if odds_val is None:
+            # Find the ML (moneyline / match winner) market
+            for market in markets:
+                if market.get("name") != "ML":
                     continue
+                odds_arr = market.get("odds", [])
+                if not odds_arr:
+                    continue
+                # odds[0] contains {home, draw, away}
+                odds_obj = odds_arr[0] if isinstance(odds_arr, list) else odds_arr
                 try:
-                    odds_float = float(odds_val)
-                except (ValueError, TypeError):
+                    h = float(odds_obj.get("home", 0))
+                    d = float(odds_obj.get("draw", 0))
+                    a = float(odds_obj.get("away", 0))
+                    if h > 0 and d > 0 and a > 0:
+                        home_odds_list.append(h)
+                        draw_odds_list.append(d)
+                        away_odds_list.append(a)
+                except (ValueError, TypeError, AttributeError):
                     continue
-
-                if market == "home":
-                    home_odds_list.append(odds_float)
-                elif market == "draw":
-                    draw_odds_list.append(odds_float)
-                elif market == "away":
-                    away_odds_list.append(odds_float)
 
         if not home_odds_list or not draw_odds_list or not away_odds_list:
             return None
 
+        # Average across bookmakers
         avg_home = sum(home_odds_list) / len(home_odds_list)
         avg_draw = sum(draw_odds_list) / len(draw_odds_list)
         avg_away = sum(away_odds_list) / len(away_odds_list)
 
+        # Convert to implied probabilities and normalize
         imp_home = odds_to_implied_prob(avg_home)
         imp_draw = odds_to_implied_prob(avg_draw)
         imp_away = odds_to_implied_prob(avg_away)
@@ -260,8 +266,8 @@ class OddsApiCollector(BaseCollector):
 
             for event in events:
                 event_id = event.get("id")
-                home_name = event.get("homeTeam", "")
-                away_name = event.get("awayTeam", "")
+                home_name = event.get("home", "")
+                away_name = event.get("away", "")
 
                 if not event_id or not home_name or not away_name:
                     continue
@@ -270,6 +276,7 @@ class OddsApiCollector(BaseCollector):
                 away_team = find_team(away_name)
 
                 if not home_team or not away_team:
+                    logger.debug("Unmatched: %s vs %s", home_name, away_name)
                     continue
 
                 match = match_lookup.get((home_team.id, away_team.id))
@@ -287,7 +294,7 @@ class OddsApiCollector(BaseCollector):
                     logger.warning("Failed to fetch odds for event %s", event_id)
                     continue
 
-                odds = self._extract_odds_from_event(odds_data)
+                odds = self._extract_odds(odds_data)
                 if not odds:
                     continue
 

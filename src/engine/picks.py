@@ -7,7 +7,7 @@ and diversifies across leagues to avoid correlated failures.
 import logging
 from collections import defaultdict
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -67,6 +67,24 @@ async def generate_predictions_and_picks(
     if not rows:
         logger.info("No upcoming matches with features found")
         return []
+
+    # Idempotency: clear any unresolved picks + orphan predictions for these
+    # matches so re-runs replace stale rows instead of accumulating duplicates.
+    match_ids = [match.id for match, _ in rows]
+    await session.execute(
+        delete(Pick).where(
+            Pick.match_id.in_(match_ids),
+            Pick.outcome.is_(None),
+        )
+    )
+    preds_still_referenced = select(Pick.prediction_id).where(Pick.prediction_id.is_not(None))
+    await session.execute(
+        delete(Prediction).where(
+            Prediction.match_id.in_(match_ids),
+            Prediction.id.notin_(preds_still_referenced),
+        )
+    )
+    await session.flush()
 
     # Build features DataFrame
     records = []

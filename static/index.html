@@ -5,217 +5,180 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenBet — AI Football Predictions</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
             darkMode: 'class',
             theme: {
                 extend: {
-                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        display: ['Newsreader', 'Georgia', 'serif'],
+                        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+                    },
                     colors: {
-                        surface: 'rgba(255,255,255,0.03)',
-                        'surface-hover': 'rgba(255,255,255,0.06)',
-                        'surface-raised': 'rgba(255,255,255,0.05)',
-                        glass: 'rgba(255,255,255,0.04)',
-                        'glass-border': 'rgba(255,255,255,0.08)',
-                        dim: 'rgba(255,255,255,0.06)',
-                        'dim-hover': 'rgba(255,255,255,0.12)',
-                        accent: { DEFAULT: '#4f8fff', soft: 'rgba(79,143,255,0.08)', glow: 'rgba(79,143,255,0.15)' },
-                        ok: { DEFAULT: '#22c55e', soft: 'rgba(34,197,94,0.1)' },
-                        warn: { DEFAULT: '#eab308', soft: 'rgba(234,179,8,0.1)' },
-                        danger: { DEFAULT: '#ef4444', soft: 'rgba(239,68,68,0.1)' },
-                        muted: '#7c8494',
-                        faint: '#3d4452',
+                        paper: '#0a0a0b',
+                        surface: '#111114',
+                        rule: { DEFAULT: '#1f2026', strong: '#2a2c34' },
+                        ink: { DEFAULT: '#e9e8e3', muted: '#8a8d96', faint: '#52535a' },
+                        accent: '#d4a44a',
+                        ok: '#7cc282',
+                        danger: '#d97070',
                     },
                 },
             },
         }
     </script>
     <style>
-        body {
-            background: #050608;
-            background-image: linear-gradient(135deg, #050608 0%, #0a0f18 50%, #0d1117 100%);
-        }
-        body::before {
-            content: '';
-            position: fixed;
-            inset: 0;
-            background-image:
-                radial-gradient(circle at 25% 25%, rgba(79,143,255,0.03) 0%, transparent 50%),
-                radial-gradient(circle at 75% 75%, rgba(34,197,94,0.02) 0%, transparent 50%);
-            pointer-events: none;
-        }
-        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); cursor: pointer; }
+        body { background: #0a0a0b; }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.55); cursor: pointer; opacity: 0.7; }
+        input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
         .animate-pulse-slow { animation: pulse 1.5s infinite; }
-        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #3d4452; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #7c8494; }
-
-        /* Card shimmer on hover */
-        .pick-card { position: relative; overflow: hidden; }
-        .pick-card::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.02) 45%, rgba(255,255,255,0.04) 50%, rgba(255,255,255,0.02) 55%, transparent 60%);
-            transform: translateX(-100%);
-            transition: transform 0.6s ease;
-        }
-        .pick-card:hover::after { transform: translateX(100%); }
-
-        /* Confidence ring */
-        .conf-ring {
-            width: 56px; height: 56px;
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            position: relative;
-        }
-        .conf-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
-        .conf-ring circle { fill: none; stroke-width: 3; stroke-linecap: round; }
-
-        /* Gradient text */
-        .gradient-text {
-            background: linear-gradient(135deg, #4f8fff, #7c3aed);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
+        ::-webkit-scrollbar-thumb { background: #2a2c34; }
+        ::-webkit-scrollbar-thumb:hover { background: #52535a; }
+        .small-caps { font-variant: small-caps; letter-spacing: 0.08em; }
     </style>
 </head>
-<body class="text-gray-100 font-sans min-h-screen antialiased">
-<div class="relative z-[1]">
+<body class="text-ink font-sans min-h-screen antialiased">
 
     <!-- ═══════════════════ HEADER ═══════════════════ -->
-    <header class="sticky top-0 z-50 backdrop-blur-xl bg-[rgba(5,6,8,0.8)] border-b border-dim">
-        <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
-            <!-- Brand -->
-            <div class="flex items-center gap-3 shrink-0">
-                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-accent to-purple-600 flex items-center justify-center font-extrabold text-sm text-white tracking-tight">OB</div>
-                <div>
-                    <h1 class="text-[17px] font-bold tracking-tight leading-tight">OpenBet</h1>
-                    <span class="text-[11px] text-muted">AI-Powered Match Predictions</span>
-                </div>
+    <header class="sticky top-0 z-50 backdrop-blur-xl bg-[rgba(10,10,11,0.85)] border-b border-rule">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-end gap-4">
+            <!-- Wordmark -->
+            <div class="shrink-0">
+                <h1 class="font-display text-[24px] leading-none tracking-tight">OpenBet</h1>
+                <span class="text-[10px] text-ink-faint uppercase tracking-[0.22em] mt-1 inline-block">Match Intelligence</span>
             </div>
 
             <!-- Controls -->
-            <div class="flex items-center gap-2 flex-wrap sm:ml-auto">
+            <div class="flex items-center gap-5 flex-wrap sm:ml-auto text-[12px]">
                 <!-- Date Nav -->
-                <div class="flex items-center gap-0.5 bg-surface border border-dim rounded-lg p-0.5">
-                    <button class="w-8 h-8 flex items-center justify-center text-muted hover:bg-surface-hover hover:text-white rounded-md transition text-xl font-light" id="prevDay" onclick="changeDay(-1)" title="Previous day">&#8249;</button>
-                    <input type="date" id="matchDate" class="bg-transparent border-none text-white px-2 py-1.5 text-[13px] font-medium outline-none min-w-0">
-                    <button class="w-8 h-8 flex items-center justify-center text-muted hover:bg-surface-hover hover:text-white rounded-md transition text-xl font-light" onclick="changeDay(1)" title="Next day">&#8250;</button>
-                    <button class="text-accent text-[11px] font-semibold px-2 py-1 rounded-md hover:bg-accent-soft transition" onclick="goToday()">Today</button>
+                <div class="flex items-center gap-3">
+                    <button class="text-ink-muted hover:text-ink text-lg leading-none w-5 h-5 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-colors" id="prevDay" onclick="changeDay(-1)" title="Previous day">‹</button>
+                    <input type="date" id="matchDate" class="bg-transparent border-none text-ink font-mono text-[12px] outline-none min-w-0 px-0">
+                    <button class="text-ink-muted hover:text-ink text-lg leading-none w-5 h-5 flex items-center justify-center transition-colors" onclick="changeDay(1)" title="Next day">›</button>
+                    <button class="text-accent text-[11px] uppercase tracking-[0.18em] hover:text-ink transition-colors" onclick="goToday()">Today</button>
                 </div>
-                <button class="px-4 py-2 rounded-lg text-[13px] font-medium bg-accent text-white shadow-[0_2px_8px_rgba(79,143,255,0.25)] hover:shadow-[0_4px_16px_rgba(79,143,255,0.35)] hover:-translate-y-px transition-all" onclick="fetchPicks()">Get Tips</button>
-                <button class="px-4 py-2 rounded-lg text-[13px] font-medium border border-dim text-muted hover:text-white hover:border-dim-hover hover:bg-surface transition-all" onclick="fetchPicks(true)">Regenerate</button>
-                <button class="px-3 py-1.5 rounded-lg text-[12px] text-muted border border-dim hover:text-white hover:border-dim-hover hover:bg-surface transition-all" onclick="togglePaperTrading()">Paper Trading</button>
-                <button class="px-3 py-1.5 rounded-lg text-[12px] text-faint border border-transparent hover:text-muted hover:border-dim transition-all" id="adminBtn" onclick="handleAdminBtn()">Admin</button>
+                <!-- Buttons -->
+                <div class="flex items-center gap-4">
+                    <button class="text-accent text-[11px] uppercase tracking-[0.18em] border-b border-accent pb-0.5 hover:opacity-70 transition-opacity" onclick="fetchPicks()">Get Tips</button>
+                    <button class="text-ink-muted text-[11px] uppercase tracking-[0.18em] hover:text-ink transition-colors" onclick="fetchPicks(true)">Regenerate</button>
+                    <button class="text-ink-muted text-[11px] uppercase tracking-[0.18em] hover:text-ink transition-colors" onclick="togglePaperTrading()">Paper Trading</button>
+                    <button class="text-ink-faint text-[11px] uppercase tracking-[0.18em] hover:text-ink-muted transition-colors" id="adminBtn" onclick="handleAdminBtn()">Admin</button>
+                </div>
             </div>
         </div>
     </header>
 
-    <!-- ═══════════════════ DATE BAR ═══════════════════ -->
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 mt-6 hidden items-center justify-between" id="statusBar">
-        <span class="text-lg sm:text-xl font-bold tracking-tight" id="statusTitle"></span>
-        <span class="text-[12px] font-semibold text-accent bg-accent-soft border border-[rgba(79,143,255,0.15)] px-3 py-1 rounded-full" id="statusCount"></span>
+    <!-- ═══════════════════ STATUS BAR ═══════════════════ -->
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 mt-10 mb-2 hidden items-baseline justify-between gap-4 border-b border-rule pb-3" id="statusBar">
+        <h2 class="font-display text-[28px] sm:text-[32px] leading-tight" id="statusTitle"></h2>
+        <span class="text-[10px] text-ink-faint uppercase tracking-[0.22em] shrink-0" id="statusCount"></span>
     </div>
 
     <!-- ═══════════════════ LOGIN MODAL ═══════════════════ -->
-    <div class="fixed inset-0 bg-black/70 backdrop-blur-md z-[100] hidden items-center justify-center" id="loginModal" onclick="handleOverlayClick(event)">
-        <div class="bg-[#0d1117] border border-dim rounded-2xl p-8 w-full max-w-sm mx-4 shadow-2xl">
-            <div class="text-lg font-bold mb-1">Admin Login</div>
-            <div class="text-[13px] text-muted mb-7">Enter credentials to access the control panel.</div>
+    <div class="fixed inset-0 bg-black/75 backdrop-blur-sm z-[100] hidden items-center justify-center" id="loginModal" onclick="handleOverlayClick(event)">
+        <div class="bg-surface border border-rule p-8 w-full max-w-sm mx-4">
+            <h3 class="font-display text-[22px] leading-tight mb-1">Admin Sign In</h3>
+            <p class="text-[12px] text-ink-muted mb-6">Enter credentials to access the control panel.</p>
             <div class="mb-4">
-                <label class="block text-[12px] font-semibold text-muted mb-1.5" for="loginUser">Username</label>
+                <label class="block text-[10px] text-ink-faint uppercase tracking-[0.18em] mb-2" for="loginUser">Username</label>
                 <input type="text" id="loginUser" autocomplete="username" placeholder="admin"
-                    class="w-full bg-surface border border-dim text-white px-3.5 py-2.5 rounded-lg text-[13px] outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft transition">
+                    class="w-full bg-transparent border-b border-rule text-ink font-mono px-0 py-2 text-[13px] outline-none focus:border-accent transition-colors">
             </div>
             <div class="mb-4">
-                <label class="block text-[12px] font-semibold text-muted mb-1.5" for="loginPass">Password</label>
-                <input type="password" id="loginPass" autocomplete="current-password" placeholder="Enter password"
+                <label class="block text-[10px] text-ink-faint uppercase tracking-[0.18em] mb-2" for="loginPass">Password</label>
+                <input type="password" id="loginPass" autocomplete="current-password" placeholder=""
                     onkeydown="if(event.key==='Enter') submitLogin()"
-                    class="w-full bg-surface border border-dim text-white px-3.5 py-2.5 rounded-lg text-[13px] outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft transition">
+                    class="w-full bg-transparent border-b border-rule text-ink font-mono px-0 py-2 text-[13px] outline-none focus:border-accent transition-colors">
             </div>
-            <div class="text-[12px] text-danger bg-danger-soft px-3 py-2 rounded-lg mb-3 hidden" id="loginError"></div>
-            <div class="flex gap-2.5 mt-6">
-                <button class="flex-1 px-4 py-2.5 rounded-lg text-[13px] font-medium bg-accent text-white hover:shadow-lg transition-all" onclick="submitLogin()" id="loginSubmitBtn">Sign In</button>
-                <button class="px-4 py-2.5 rounded-lg text-[13px] text-muted border border-dim hover:text-white hover:border-dim-hover transition-all" onclick="closeLoginModal()">Cancel</button>
+            <div class="text-[11px] text-danger mt-2 hidden" id="loginError"></div>
+            <div class="flex items-center gap-6 mt-7">
+                <button class="text-accent text-[11px] uppercase tracking-[0.18em] border-b border-accent pb-0.5 hover:opacity-70 transition-opacity" onclick="submitLogin()" id="loginSubmitBtn">Sign In</button>
+                <button class="text-ink-muted text-[11px] uppercase tracking-[0.18em] hover:text-ink transition-colors" onclick="closeLoginModal()">Cancel</button>
             </div>
         </div>
     </div>
 
-    <!-- ═══════════════════ ADMIN PANEL ═══════════════════ -->
+    <!-- ═══════════════════ ADMIN PANEL (untouched) ═══════════════════ -->
     <div class="max-w-5xl mx-auto px-4 sm:px-6 mt-4 hidden" id="adminPanel">
-        <div class="bg-glass border border-glass-border rounded-2xl p-5 sm:p-6">
+        <div class="bg-glass border border-glass-border rounded-2xl p-5 sm:p-6" style="background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.08);border-radius:1rem;">
             <div class="flex justify-between items-center mb-4">
-                <div class="text-[13px] font-bold uppercase tracking-wider text-muted">Data Pipeline</div>
-                <button class="text-[11px] px-3 py-1 text-danger border border-[rgba(239,68,68,0.2)] bg-danger-soft rounded-lg hover:border-danger transition" onclick="clearToken()">Logout</button>
+                <div class="text-[13px] font-bold uppercase tracking-wider text-ink-muted">Data Pipeline</div>
+                <button class="text-[11px] px-3 py-1 text-danger border border-danger/30 rounded-lg hover:border-danger transition" onclick="clearToken()">Logout</button>
             </div>
             <div class="flex gap-2.5 flex-wrap mb-4" id="adminStats"></div>
             <div class="grid grid-cols-2 sm:flex gap-2 flex-wrap mb-4">
-                <button class="admin-btn px-4 py-2.5 rounded-lg text-[12px] font-semibold border border-dim bg-surface text-white hover:border-accent hover:text-accent hover:bg-accent-soft transition-all disabled:opacity-40 disabled:cursor-not-allowed" onclick="runAdmin('sync-data', this)">Sync Match Data</button>
-                <button class="admin-btn px-4 py-2.5 rounded-lg text-[12px] font-semibold border border-dim bg-surface text-white hover:border-accent hover:text-accent hover:bg-accent-soft transition-all disabled:opacity-40 disabled:cursor-not-allowed" onclick="runAdmin('fetch-odds', this)">Fetch Odds</button>
-                <button class="admin-btn px-4 py-2.5 rounded-lg text-[12px] font-semibold border border-dim bg-surface text-white hover:border-accent hover:text-accent hover:bg-accent-soft transition-all disabled:opacity-40 disabled:cursor-not-allowed" onclick="runAdmin('backfill-features', this)" title="Delete all features and rebuild from scratch">Backfill Features</button>
-                <button class="admin-btn px-4 py-2.5 rounded-lg text-[12px] font-semibold border border-dim bg-surface text-white hover:border-accent hover:text-accent hover:bg-accent-soft transition-all disabled:opacity-40 disabled:cursor-not-allowed" onclick="runAdmin('train', this)">Train Model</button>
-                <button class="admin-btn px-4 py-2.5 rounded-lg text-[12px] font-semibold border border-dim bg-surface text-white hover:border-accent hover:text-accent hover:bg-accent-soft transition-all disabled:opacity-40 disabled:cursor-not-allowed" onclick="runAdmin('resolve-outcomes', this)">Resolve Outcomes</button>
-                <button class="admin-btn px-4 py-2.5 rounded-lg text-[12px] font-semibold border border-dim bg-surface text-white hover:border-accent hover:text-accent hover:bg-accent-soft transition-all disabled:opacity-40 disabled:cursor-not-allowed" onclick="runBacktest(this)">Run Backtest</button>
-                <button class="admin-btn px-4 py-2.5 rounded-lg text-[12px] font-semibold border border-dim bg-surface text-white hover:border-accent hover:text-accent hover:bg-accent-soft transition-all disabled:opacity-40 disabled:cursor-not-allowed" onclick="loadStatus()">Refresh</button>
+                <button class="admin-btn px-4 py-2.5 rounded-lg text-[12px] font-semibold border border-rule bg-surface text-ink hover:border-accent hover:text-accent transition-all disabled:opacity-40 disabled:cursor-not-allowed" onclick="runAdmin('sync-data', this)">Sync Match Data</button>
+                <button class="admin-btn px-4 py-2.5 rounded-lg text-[12px] font-semibold border border-rule bg-surface text-ink hover:border-accent hover:text-accent transition-all disabled:opacity-40 disabled:cursor-not-allowed" onclick="runAdmin('fetch-odds', this)">Fetch Odds</button>
+                <button class="admin-btn px-4 py-2.5 rounded-lg text-[12px] font-semibold border border-rule bg-surface text-ink hover:border-accent hover:text-accent transition-all disabled:opacity-40 disabled:cursor-not-allowed" onclick="runAdmin('backfill-features', this)" title="Delete all features and rebuild from scratch">Backfill Features</button>
+                <button class="admin-btn px-4 py-2.5 rounded-lg text-[12px] font-semibold border border-rule bg-surface text-ink hover:border-accent hover:text-accent transition-all disabled:opacity-40 disabled:cursor-not-allowed" onclick="runAdmin('train', this)">Train Model</button>
+                <button class="admin-btn px-4 py-2.5 rounded-lg text-[12px] font-semibold border border-rule bg-surface text-ink hover:border-accent hover:text-accent transition-all disabled:opacity-40 disabled:cursor-not-allowed" onclick="runAdmin('resolve-outcomes', this)">Resolve Outcomes</button>
+                <button class="admin-btn px-4 py-2.5 rounded-lg text-[12px] font-semibold border border-rule bg-surface text-ink hover:border-accent hover:text-accent transition-all disabled:opacity-40 disabled:cursor-not-allowed" onclick="runBacktest(this)">Run Backtest</button>
+                <button class="admin-btn px-4 py-2.5 rounded-lg text-[12px] font-semibold border border-rule bg-surface text-ink hover:border-accent hover:text-accent transition-all disabled:opacity-40 disabled:cursor-not-allowed" onclick="loadStatus()">Refresh</button>
             </div>
-            <div class="text-[11px] text-muted bg-black/40 border border-dim rounded-lg px-3.5 py-3 max-h-40 overflow-y-auto hidden whitespace-pre-wrap font-mono leading-relaxed" id="adminLog"></div>
-            <div class="hidden mt-4 bg-black/30 border border-dim rounded-2xl p-5" id="backtestResults"></div>
+            <div class="text-[11px] text-ink-muted bg-black/40 border border-rule rounded-lg px-3.5 py-3 max-h-40 overflow-y-auto hidden whitespace-pre-wrap font-mono leading-relaxed" id="adminLog"></div>
+            <div class="hidden mt-4 bg-black/30 border border-rule rounded-2xl p-5" id="backtestResults"></div>
         </div>
     </div>
 
     <!-- ═══════════════════ PAPER TRADING ═══════════════════ -->
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 mt-4 hidden" id="paperTradingPanel">
-        <div class="bg-glass border border-glass-border rounded-2xl p-5 sm:p-6">
-            <div class="flex justify-between items-center mb-5">
-                <div class="text-[13px] font-bold uppercase tracking-wider text-muted">Paper Trading Tracker</div>
-                <span class="text-[10px] text-faint">Simulated 1-unit flat stakes</span>
-            </div>
-
-            <!-- Summary Cards -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5" id="ptSummary">
-                <div class="text-center py-8 text-muted text-sm col-span-full">Loading...</div>
-            </div>
-
-            <!-- Equity Curve -->
-            <div class="bg-black/30 border border-dim rounded-xl p-4 mb-5">
-                <div class="text-[11px] font-semibold uppercase tracking-wider text-muted mb-3">Equity Curve</div>
-                <div class="h-48 relative" id="ptChart">
-                    <div class="text-center py-16 text-muted text-sm">Loading chart...</div>
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 mt-10 hidden" id="paperTradingPanel">
+        <div class="border-t border-b border-rule py-8">
+            <div class="flex items-baseline justify-between mb-7">
+                <div>
+                    <h2 class="font-display text-[26px] leading-tight">Paper Trading</h2>
+                    <p class="text-[10px] text-ink-faint uppercase tracking-[0.22em] mt-1">Simulated 1-unit flat stakes</p>
                 </div>
             </div>
 
-            <!-- Breakdown + Streak -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5" id="ptBreakdown"></div>
+            <!-- Summary band (4-column divided strip) -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 divide-x divide-rule border-y border-rule mb-8" id="ptSummary">
+                <div class="text-center py-6 text-ink-muted text-sm col-span-full">Loading…</div>
+            </div>
+
+            <!-- Equity curve -->
+            <div class="mb-8">
+                <div class="text-[10px] font-medium uppercase tracking-[0.22em] text-ink-faint mb-3">Equity Curve</div>
+                <div class="h-48 relative" id="ptChart">
+                    <div class="text-center py-16 text-ink-muted text-sm">Loading…</div>
+                </div>
+            </div>
+
+            <!-- Breakdown -->
+            <div class="mb-8">
+                <div class="text-[10px] font-medium uppercase tracking-[0.22em] text-ink-faint mb-3">By Bet Type</div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 divide-x divide-rule border-y border-rule" id="ptBreakdown"></div>
+            </div>
 
             <!-- Recent Results -->
             <div>
-                <div class="text-[11px] font-semibold uppercase tracking-wider text-muted mb-3">Recent Results</div>
-                <div class="space-y-1.5 max-h-80 overflow-y-auto" id="ptResults">
-                    <div class="text-center py-4 text-muted text-sm">Loading...</div>
+                <div class="text-[10px] font-medium uppercase tracking-[0.22em] text-ink-faint mb-3">Recent Results</div>
+                <div class="max-h-80 overflow-y-auto border-t border-rule" id="ptResults">
+                    <div class="text-center py-6 text-ink-muted text-sm">Loading…</div>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- ═══════════════════ PICKS ═══════════════════ -->
-    <div class="max-w-2xl mx-auto px-4 sm:px-6 py-6 pb-24" id="picksGrid"></div>
+    <main class="max-w-3xl mx-auto px-4 sm:px-6 py-2 pb-24" id="picksGrid"></main>
 
     <!-- ═══════════════════ FOOTER ═══════════════════ -->
-    <footer class="border-t border-dim mt-12 py-4 px-4 sm:px-6 bg-[rgba(5,6,8,0.6)]">
-        <div class="max-w-5xl mx-auto flex items-center gap-6 flex-wrap">
-            <span class="text-[10px] text-faint uppercase tracking-widest font-bold shrink-0">Engine Status</span>
-            <div class="flex gap-5 flex-wrap flex-1" id="pipelineItems">
-                <span class="flex items-center gap-2 text-[11px] text-muted"><span class="w-1.5 h-1.5 rounded-full bg-faint"></span>Loading...</span>
+    <footer class="border-t border-rule mt-16 py-5 px-4 sm:px-6">
+        <div class="max-w-5xl mx-auto flex items-baseline gap-6 flex-wrap">
+            <span class="text-[10px] text-ink-faint uppercase tracking-[0.22em] shrink-0">Engine Status</span>
+            <div class="flex gap-6 flex-wrap flex-1 font-mono text-[11px]" id="pipelineItems">
+                <span class="text-ink-muted">Loading…</span>
             </div>
         </div>
     </footer>
-</div>
 
 <script>
     // ═══════ CONFIG ═══════
@@ -256,23 +219,26 @@
         _token = t;
         sessionStorage.setItem('admin_token', t);
         const btn = document.getElementById('adminBtn');
-        btn.classList.add('!text-accent', '!border-[rgba(79,143,255,0.3)]', '!bg-accent-soft');
-        btn.textContent = 'Admin \u2713';
+        btn.classList.remove('text-ink-faint');
+        btn.classList.add('text-accent');
+        btn.textContent = 'Admin ✓';
     }
 
     function clearToken() {
         _token = null;
         sessionStorage.removeItem('admin_token');
         const btn = document.getElementById('adminBtn');
-        btn.classList.remove('!text-accent', '!border-[rgba(79,143,255,0.3)]', '!bg-accent-soft');
+        btn.classList.remove('text-accent');
+        btn.classList.add('text-ink-faint');
         btn.textContent = 'Admin';
         document.getElementById('adminPanel').classList.add('hidden');
     }
 
     if (_token) {
         const btn = document.getElementById('adminBtn');
-        btn.classList.add('!text-accent', '!border-[rgba(79,143,255,0.3)]', '!bg-accent-soft');
-        btn.textContent = 'Admin \u2713';
+        btn.classList.remove('text-ink-faint');
+        btn.classList.add('text-accent');
+        btn.textContent = 'Admin ✓';
     }
 
     function authHeaders() { return _token ? { 'Authorization': `Bearer ${_token}` } : {}; }
@@ -316,7 +282,7 @@
 
         errEl.classList.add('hidden');
         btn.disabled = true;
-        btn.textContent = 'Signing in...';
+        btn.textContent = 'Signing in…';
 
         try {
             const res = await fetch(`${API_BASE}/auth/login`, {
@@ -361,123 +327,105 @@
         return pick.pick_type;
     }
 
+    function formatPct(v) {
+        if (v == null) return '—';
+        return (v * 100).toFixed(1);
+    }
+
+    function formatEdge(model, market) {
+        if (model == null || market == null) return { text: '—', cls: 'text-ink-faint' };
+        const delta = (model - market) * 100;
+        if (Math.abs(delta) < 0.05) return { text: '0.0', cls: 'text-ink-faint' };
+        const sign = delta > 0 ? '+' : '';
+        const cls = delta > 0 ? 'text-ok' : 'text-danger';
+        return { text: `${sign}${delta.toFixed(1)}`, cls };
+    }
+
     function formatOdds(val) {
-        if (val == null || val === 0) return '-';
+        if (val == null || val === 0) return '—';
         return parseFloat(val).toFixed(2);
     }
 
-    function confColor(confidence) {
-        const pct = confidence * 100;
-        if (pct >= 65) return { text: 'text-ok', stroke: '#22c55e', bg: 'bg-ok-soft', border: 'border-[rgba(34,197,94,0.15)]', label: 'HIGH' };
-        if (pct >= 50) return { text: 'text-warn', stroke: '#eab308', bg: 'bg-warn-soft', border: 'border-[rgba(234,179,8,0.15)]', label: 'MID' };
-        return { text: 'text-orange-400', stroke: '#f97316', bg: 'bg-[rgba(249,115,22,0.1)]', border: 'border-[rgba(249,115,22,0.15)]', label: 'LOW' };
-    }
-
-    function confRingSvg(pct, color) {
-        const r = 24, c = 2 * Math.PI * r;
-        const offset = c - (pct / 100) * c;
-        return `<svg viewBox="0 0 56 56"><circle cx="28" cy="28" r="${r}" stroke="rgba(255,255,255,0.06)" /><circle cx="28" cy="28" r="${r}" stroke="${color}" stroke-dasharray="${c}" stroke-dashoffset="${offset}" /></svg>`;
-    }
-
     function createPickCard(pick) {
-        const h = pick.probabilities?.home_win ?? 0;
-        const d = pick.probabilities?.draw ?? 0;
-        const a = pick.probabilities?.away_win ?? 0;
-        const hP = (h * 100).toFixed(1);
-        const dP = (d * 100).toFixed(1);
-        const aP = (a * 100).toFixed(1);
-        const isWin = pick.pick_type === 'STRAIGHT_WIN';
-        const pct = (pick.confidence * 100).toFixed(0);
-        const cc = confColor(pick.confidence);
+        const h = pick.probabilities?.home_win ?? null;
+        const d = pick.probabilities?.draw ?? null;
+        const a = pick.probabilities?.away_win ?? null;
 
-        const edgeHtml = pick.edge != null && pick.edge > 0
-            ? `<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-ok-soft text-ok">+${(pick.edge * 100).toFixed(1)}% edge</span>`
-            : '';
+        const oddsHomeImp = pick.odds_home ?? pick.probabilities?.odds_home ?? null;
+        const oddsDrawImp = pick.odds_draw ?? pick.probabilities?.odds_draw ?? null;
+        const oddsAwayImp = pick.odds_away ?? pick.probabilities?.odds_away ?? null;
+        const hasMarket = oddsHomeImp != null || oddsDrawImp != null || oddsAwayImp != null;
 
-        const hasOdds = pick.odds_decimal || pick.odds_home || pick.probabilities?.odds_home;
-        const oddsHome = pick.odds_home ?? pick.probabilities?.odds_home;
-        const oddsDraw = pick.odds_draw ?? pick.probabilities?.odds_draw;
-        const oddsAway = pick.odds_away ?? pick.probabilities?.odds_away;
+        const pct = Math.round((pick.confidence || 0) * 100);
+        const confClass = pct >= 65 ? 'text-accent' : 'text-ink';
 
-        const oddsHtml = hasOdds ? `
-            <div class="flex justify-between px-3 py-2 bg-surface border border-dim rounded-lg text-center mb-3">
-                <div class="flex flex-col items-center gap-0.5">
-                    <span class="text-[9px] font-semibold uppercase tracking-wider text-faint">Home</span>
-                    <span class="text-sm font-bold tabular-nums">${formatOdds(oddsHome)}</span>
-                </div>
-                <div class="flex flex-col items-center gap-0.5">
-                    <span class="text-[9px] font-semibold uppercase tracking-wider text-faint">Draw</span>
-                    <span class="text-sm font-bold tabular-nums">${formatOdds(oddsDraw)}</span>
-                </div>
-                <div class="flex flex-col items-center gap-0.5">
-                    <span class="text-[9px] font-semibold uppercase tracking-wider text-faint">Away</span>
-                    <span class="text-sm font-bold tabular-nums">${formatOdds(oddsAway)}</span>
-                </div>
-                ${pick.odds_decimal ? `<div class="flex flex-col items-center gap-0.5">
-                    <span class="text-[9px] font-semibold uppercase tracking-wider text-faint">Pick</span>
-                    <span class="text-sm font-bold tabular-nums text-ok">${formatOdds(pick.odds_decimal)}</span>
-                </div>` : ''}
-            </div>` : '';
+        const eH = formatEdge(h, oddsHomeImp);
+        const eD = formatEdge(d, oddsDrawImp);
+        const eA = formatEdge(a, oddsAwayImp);
+
+        const competition = (pick.competition || '').trim();
+        const kick = (pick.kick_off || '').trim();
+        const compLine = [competition, kick].filter(Boolean).join(' · ');
+
+        const market = formatMarket(pick);
+        const oddsDec = pick.odds_decimal ? formatOdds(pick.odds_decimal) : null;
+
+        const hasReasoning = pick.reasoning && pick.reasoning.trim().length > 0;
 
         return `
-        <div class="pick-card group bg-glass border border-glass-border rounded-2xl transition-all duration-300 hover:border-dim-hover hover:bg-surface-hover hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
-            <!-- Top section: confidence ring + match info -->
-            <div class="p-4 sm:p-5">
-                <div class="flex items-start gap-4">
-                    <!-- Confidence Ring -->
-                    <div class="shrink-0">
-                        <div class="conf-ring">
-                            ${confRingSvg(pct, cc.stroke)}
-                            <span class="text-[15px] font-extrabold ${cc.text} tracking-tight">${pct}</span>
-                        </div>
-                    </div>
+        <article class="border-b border-rule py-8 hover:bg-[rgba(255,255,255,0.012)] transition-colors">
+            <!-- Header line -->
+            <div class="flex items-start justify-between gap-4 mb-3">
+                <div class="text-[10px] text-ink-faint uppercase tracking-[0.22em] font-medium pt-2">${compLine}</div>
+                <div class="font-mono text-[30px] leading-none tabular-nums ${confClass}">${pct}</div>
+            </div>
 
-                    <!-- Match Info -->
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center justify-between mb-2.5">
-                            <span class="text-[10px] font-semibold uppercase tracking-wider text-muted bg-surface-raised px-2.5 py-0.5 rounded-full border border-dim truncate">${pick.competition || ''}</span>
-                            <span class="text-[11px] text-faint font-medium shrink-0 ml-2">${pick.kick_off || ''}</span>
-                        </div>
+            <!-- Teams -->
+            <h3 class="font-display text-[24px] sm:text-[26px] leading-tight mb-6">
+                <span>${pick.home_team}</span><span class="text-ink-faint mx-2 font-sans text-[14px] italic">vs</span><span>${pick.away_team}</span>
+            </h3>
 
-                        <!-- Teams -->
-                        <div class="mb-3">
-                            <div class="text-[15px] font-semibold tracking-tight truncate">${pick.home_team}</div>
-                            <div class="text-[11px] text-faint font-medium my-0.5">vs</div>
-                            <div class="text-[15px] font-semibold tracking-tight truncate">${pick.away_team}</div>
-                        </div>
+            <!-- Probability table -->
+            <div class="font-mono text-[12px] tabular-nums mb-6">
+                <div class="grid grid-cols-[72px_1fr_1fr_1fr] gap-x-5 gap-y-2 items-center">
+                    <div class="text-[10px] text-ink-faint uppercase tracking-[0.18em] font-sans">&nbsp;</div>
+                    <div class="text-right text-[10px] text-ink-faint uppercase tracking-[0.18em] font-sans">Home</div>
+                    <div class="text-right text-[10px] text-ink-faint uppercase tracking-[0.18em] font-sans">Draw</div>
+                    <div class="text-right text-[10px] text-ink-faint uppercase tracking-[0.18em] font-sans">Away</div>
 
-                        <!-- Probability Bar -->
-                        <div class="mb-3">
-                            <div class="flex justify-between text-[10px] font-semibold mb-1.5">
-                                <span class="text-accent flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-accent inline-block"></span>${hP}%</span>
-                                <span class="text-warn flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-warn inline-block"></span>${dP}%</span>
-                                <span class="text-danger flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-danger inline-block"></span>${aP}%</span>
-                            </div>
-                            <div class="flex h-1.5 rounded-full overflow-hidden bg-[rgba(255,255,255,0.03)] gap-0.5">
-                                <div class="rounded-full bg-gradient-to-r from-accent to-blue-300" style="width:${hP}%"></div>
-                                <div class="rounded-full bg-gradient-to-r from-warn to-yellow-300" style="width:${dP}%"></div>
-                                <div class="rounded-full bg-gradient-to-r from-danger to-red-300" style="width:${aP}%"></div>
-                            </div>
-                        </div>
+                    <div class="text-[10px] text-ink-faint uppercase tracking-[0.18em] font-sans">Model</div>
+                    <div class="text-right text-ink">${formatPct(h)}</div>
+                    <div class="text-right text-ink">${formatPct(d)}</div>
+                    <div class="text-right text-ink">${formatPct(a)}</div>
 
-                        ${oddsHtml}
+                    <div class="text-[10px] text-ink-faint uppercase tracking-[0.18em] font-sans">Market</div>
+                    <div class="text-right text-ink-muted">${formatPct(oddsHomeImp)}</div>
+                    <div class="text-right text-ink-muted">${formatPct(oddsDrawImp)}</div>
+                    <div class="text-right text-ink-muted">${formatPct(oddsAwayImp)}</div>
 
-                        <!-- Pick -->
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span class="text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wide ${isWin ? 'bg-ok-soft text-ok border border-[rgba(34,197,94,0.2)]' : 'bg-accent-soft text-accent border border-[rgba(79,143,255,0.2)]'}">${formatMarket(pick)}</span>
-                            <span class="text-[13px] font-semibold">${formatPickLabel(pick)}</span>
-                            <span class="ml-auto">${edgeHtml}</span>
-                        </div>
-                    </div>
+                    ${hasMarket ? `
+                    <div class="text-[10px] text-ink-faint uppercase tracking-[0.18em] font-sans">Edge</div>
+                    <div class="text-right ${eH.cls}">${eH.text}</div>
+                    <div class="text-right ${eD.cls}">${eD.text}</div>
+                    <div class="text-right ${eA.cls}">${eA.text}</div>
+                    ` : ''}
                 </div>
             </div>
 
-            <!-- Reasoning -->
-            ${pick.reasoning ? `
-            <div class="px-4 sm:px-5 py-3 bg-[rgba(79,143,255,0.02)] border-t border-dim text-[12px] text-muted leading-relaxed">
-                <strong class="text-white font-semibold">Analysis:</strong> ${pick.reasoning}
+            <!-- Pick line -->
+            <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-rule pt-4">
+                <span class="text-[10px] text-ink-faint uppercase tracking-[0.22em]">Pick</span>
+                <span class="font-display text-[16px] text-ink">${formatPickLabel(pick)}</span>
+                <span class="text-[10px] text-accent uppercase tracking-[0.22em]">${market}</span>
+                ${oddsDec ? `<span class="font-mono text-[12px] text-ink-muted ml-auto tabular-nums">@ ${oddsDec}</span>` : ''}
+            </div>
+
+            ${hasReasoning ? `
+            <div class="mt-4 pl-4 border-l border-rule">
+                <div class="text-[10px] text-ink-faint uppercase tracking-[0.22em] mb-1.5">Analysis</div>
+                <p class="font-display italic text-[14px] text-ink-muted leading-relaxed">${pick.reasoning}</p>
             </div>` : ''}
-        </div>`;
+        </article>`;
     }
 
     // ═══════ FETCH PICKS ═══════
@@ -489,9 +437,9 @@
         statusBar.classList.add('hidden');
         statusBar.classList.remove('flex');
 
-        grid.innerHTML = `<div class="text-center py-20 text-muted text-sm">
-            <div class="w-7 h-7 border-2 border-dim border-t-accent rounded-full mx-auto mb-4" style="animation:spin 0.7s linear infinite"></div>
-            Generating predictions...
+        grid.innerHTML = `<div class="text-center py-24 text-ink-muted">
+            <div class="w-6 h-6 border border-rule border-t-accent rounded-full mx-auto mb-5" style="animation:spin 0.8s linear infinite"></div>
+            <span class="text-[10px] uppercase tracking-[0.22em] text-ink-faint">Generating predictions</span>
         </div>`;
 
         try {
@@ -500,15 +448,14 @@
             const data = await res.json();
 
             if (data.error) {
-                grid.innerHTML = `<div class="text-center py-20 text-danger text-sm">${data.error}</div>`;
+                grid.innerHTML = `<div class="text-center py-24 text-danger text-sm">${data.error}</div>`;
                 return;
             }
 
             if (!data.picks || data.picks.length === 0) {
-                grid.innerHTML = `<div class="text-center py-20 text-muted">
-                    <div class="text-5xl mb-4 opacity-40">&#9917;</div>
-                    <div class="text-sm">No matches scheduled for this date.</div>
-                    <div class="text-[12px] text-faint mt-2">Try a different date using the arrows above</div>
+                grid.innerHTML = `<div class="text-center py-24">
+                    <div class="font-display text-[26px] text-ink-muted mb-2">No fixtures</div>
+                    <div class="text-[11px] text-ink-faint uppercase tracking-[0.22em]">Try a different date</div>
                 </div>`;
                 return;
             }
@@ -517,28 +464,30 @@
                 weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
             });
             document.getElementById('statusTitle').textContent = displayDate;
-            document.getElementById('statusCount').textContent = data.count + ' tip' + (data.count !== 1 ? 's' : '');
+            document.getElementById('statusCount').textContent = data.count + ' Pick' + (data.count !== 1 ? 's' : '');
             statusBar.classList.remove('hidden');
             statusBar.classList.add('flex');
 
             const sorted = data.picks.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
-            grid.innerHTML = '<div class="flex flex-col gap-4">' + sorted.map(p => createPickCard(p)).join('') + '</div>';
+            grid.innerHTML = sorted.map(p => createPickCard(p)).join('');
         } catch (e) {
             const demo = {
                 competition: 'Premier League', kick_off: '15:00',
                 home_team: 'Arsenal', away_team: 'Chelsea',
                 probabilities: { home_win: 0.52, draw: 0.24, away_win: 0.24 },
+                odds_home: 0.44, odds_draw: 0.28, odds_away: 0.28,
                 pick_type: 'STRAIGHT_WIN', pick_value: 'HOME',
-                confidence: 0.52, edge: 0.08,
-                reasoning: 'Arsenal have a 52% win probability, making them clear favourites. Arsenal are in stronger recent form and have a strong home record.'
+                confidence: 0.52, edge: 0.08, odds_decimal: 2.27,
+                reasoning: 'Arsenal hold a clear edge over the market at home, with form and Elo both favouring the hosts.'
             };
             const demo2 = {
                 competition: 'La Liga', kick_off: '20:00',
                 home_team: 'Getafe', away_team: 'Barcelona',
                 probabilities: { home_win: 0.18, draw: 0.22, away_win: 0.60 },
+                odds_home: 0.20, odds_draw: 0.25, odds_away: 0.55,
                 pick_type: 'STRAIGHT_WIN', pick_value: 'AWAY',
-                confidence: 0.60, edge: 0.12,
-                reasoning: 'Barcelona have a 60% win probability, making them clear favourites. Barcelona are Elo-rated significantly higher and are in stronger recent form.'
+                confidence: 0.60, edge: 0.05, odds_decimal: 1.82,
+                reasoning: 'Barcelona arrive in stronger form and rated significantly higher; market is pricing the away win conservatively.'
             };
             const demo3 = {
                 competition: 'Bundesliga', kick_off: '17:30',
@@ -546,10 +495,16 @@
                 probabilities: { home_win: 0.42, draw: 0.28, away_win: 0.30 },
                 pick_type: 'DOUBLE_CHANCE', pick_value: '1X',
                 confidence: 0.70,
-                reasoning: 'Dortmund have a combined 70% probability of winning or drawing at home. Strong home advantage and superior Elo rating make them the safe pick.'
             };
-            grid.innerHTML = `<div class="text-center text-danger text-sm py-5">Server not connected — showing preview</div>
-                <div class="flex flex-col gap-4">${[demo, demo2, demo3].map(p => createPickCard(p)).join('')}</div>`;
+            const displayDate = new Date(date + 'T12:00:00').toLocaleDateString('en-GB', {
+                weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+            });
+            document.getElementById('statusTitle').textContent = displayDate;
+            document.getElementById('statusCount').textContent = '3 Picks · Preview';
+            statusBar.classList.remove('hidden');
+            statusBar.classList.add('flex');
+            grid.innerHTML = `<div class="text-center text-danger text-[11px] uppercase tracking-[0.22em] py-4 border-b border-rule">Server unreachable — showing preview</div>` +
+                [demo, demo2, demo3].map(p => createPickCard(p)).join('');
         }
     }
 
@@ -561,31 +516,31 @@
             if (res.status === 401) { clearToken(); return; }
             const d = await res.json();
             el.innerHTML = `
-                <span class="text-[12px] text-muted bg-surface border border-dim px-3 py-1.5 rounded-full"><strong class="text-white font-bold">${d.total_matches || 0}</strong> matches</span>
-                <span class="text-[12px] text-muted bg-surface border border-dim px-3 py-1.5 rounded-full"><strong class="text-white font-bold">${d.finished_matches || 0}</strong> finished</span>
-                <span class="text-[12px] text-muted bg-surface border border-dim px-3 py-1.5 rounded-full"><strong class="text-white font-bold">${d.features_built || 0}</strong> features</span>
-                <span class="text-[12px] text-muted bg-surface border border-dim px-3 py-1.5 rounded-full"><strong class="text-white font-bold">${d.with_odds || 0}</strong> with odds</span>
-                <span class="text-[12px] text-muted bg-surface border border-dim px-3 py-1.5 rounded-full">XGB: <strong class="text-white font-bold">${d.xgb_model ? '\u2705' : '\u274c'}</strong></span>
-                <span class="text-[12px] text-muted bg-surface border border-dim px-3 py-1.5 rounded-full">Meta: <strong class="text-white font-bold">${d.meta_learner ? '\u2705' : '\u274c'}</strong></span>
+                <span class="text-[12px] text-ink-muted bg-surface border border-rule px-3 py-1.5 rounded-full"><strong class="text-ink font-bold">${d.total_matches || 0}</strong> matches</span>
+                <span class="text-[12px] text-ink-muted bg-surface border border-rule px-3 py-1.5 rounded-full"><strong class="text-ink font-bold">${d.finished_matches || 0}</strong> finished</span>
+                <span class="text-[12px] text-ink-muted bg-surface border border-rule px-3 py-1.5 rounded-full"><strong class="text-ink font-bold">${d.features_built || 0}</strong> features</span>
+                <span class="text-[12px] text-ink-muted bg-surface border border-rule px-3 py-1.5 rounded-full"><strong class="text-ink font-bold">${d.with_odds || 0}</strong> with odds</span>
+                <span class="text-[12px] text-ink-muted bg-surface border border-rule px-3 py-1.5 rounded-full">XGB: <strong class="text-ink font-bold">${d.xgb_model ? '✅' : '❌'}</strong></span>
+                <span class="text-[12px] text-ink-muted bg-surface border border-rule px-3 py-1.5 rounded-full">Meta: <strong class="text-ink font-bold">${d.meta_learner ? '✅' : '❌'}</strong></span>
             `;
-        } catch { el.innerHTML = '<span class="text-[12px] text-muted bg-surface border border-dim px-3 py-1.5 rounded-full">Server offline</span>'; }
+        } catch { el.innerHTML = '<span class="text-[12px] text-ink-muted bg-surface border border-rule px-3 py-1.5 rounded-full">Server offline</span>'; }
     }
 
     async function runAdmin(action, btn) {
         const log = document.getElementById('adminLog');
         log.classList.remove('hidden');
         btn.disabled = true;
-        btn.classList.add('!border-warn', '!text-warn', '!bg-warn-soft', 'animate-pulse-slow');
+        btn.classList.add('animate-pulse-slow');
         const label = btn.textContent;
-        btn.textContent = 'Running...';
-        log.textContent += `\u25B6 ${action}...\n`;
+        btn.textContent = 'Running…';
+        log.textContent += `▶ ${action}…\n`;
 
         try {
             const res = await fetch(`${API_BASE}/admin/${action}`, { method: 'POST', headers: authHeaders() });
             if (res.status === 401) {
                 clearToken();
                 log.textContent += 'Session expired. Please log in again.\n';
-                btn.disabled = false; btn.classList.remove('!border-warn', '!text-warn', '!bg-warn-soft', 'animate-pulse-slow'); btn.textContent = label;
+                btn.disabled = false; btn.classList.remove('animate-pulse-slow'); btn.textContent = label;
                 openLoginModal();
                 return;
             }
@@ -598,9 +553,9 @@
                         const s = await sr.json();
                         if (s.status === 'ok' || s.status === 'error') {
                             clearInterval(poll);
-                            log.textContent += `\u2714 ${s.message}\n`;
+                            log.textContent += `✔ ${s.message}\n`;
                             if (s.metrics) log.textContent += `Metrics: ${JSON.stringify(s.metrics, null, 2)}\n`;
-                            btn.disabled = false; btn.classList.remove('!border-warn', '!text-warn', '!bg-warn-soft', 'animate-pulse-slow'); btn.textContent = label;
+                            btn.disabled = false; btn.classList.remove('animate-pulse-slow'); btn.textContent = label;
                             loadStatus();
                         }
                     } catch { /* keep polling */ }
@@ -608,12 +563,12 @@
             } else {
                 log.textContent += `${d.message || JSON.stringify(d)}\n`;
                 if (d.metrics) log.textContent += `Metrics: ${JSON.stringify(d.metrics, null, 2)}\n`;
-                btn.disabled = false; btn.classList.remove('!border-warn', '!text-warn', '!bg-warn-soft', 'animate-pulse-slow'); btn.textContent = label;
+                btn.disabled = false; btn.classList.remove('animate-pulse-slow'); btn.textContent = label;
                 loadStatus();
             }
         } catch (e) {
-            log.textContent += `\u2718 Error: ${e.message}\n`;
-            btn.disabled = false; btn.classList.remove('!border-warn', '!text-warn', '!bg-warn-soft', 'animate-pulse-slow'); btn.textContent = label;
+            log.textContent += `✘ Error: ${e.message}\n`;
+            btn.disabled = false; btn.classList.remove('animate-pulse-slow'); btn.textContent = label;
         }
 
         log.scrollTop = log.scrollHeight;
@@ -624,9 +579,9 @@
         const resultsDiv = document.getElementById('backtestResults');
         log.classList.remove('hidden');
         btn.disabled = true;
-        btn.classList.add('!border-warn', '!text-warn', '!bg-warn-soft', 'animate-pulse-slow');
-        btn.textContent = 'Running...';
-        log.textContent += '\u25B6 backtest (last 8 weeks)...\n';
+        btn.classList.add('animate-pulse-slow');
+        btn.textContent = 'Running…';
+        log.textContent += '▶ backtest (last 8 weeks)…\n';
 
         try {
             const res = await fetch(`${API_BASE}/admin/backtest`, { method: 'POST', headers: authHeaders() });
@@ -641,20 +596,20 @@
                         const s = await sr.json();
                         if (s.status === 'ok' || s.status === 'error') {
                             clearInterval(poll);
-                            log.textContent += `\u2714 ${s.message}\n`;
+                            log.textContent += `✔ ${s.message}\n`;
                             if (s.results) renderBacktest(s.results, resultsDiv);
-                            btn.disabled = false; btn.classList.remove('!border-warn', '!text-warn', '!bg-warn-soft', 'animate-pulse-slow'); btn.textContent = 'Run Backtest';
+                            btn.disabled = false; btn.classList.remove('animate-pulse-slow'); btn.textContent = 'Run Backtest';
                         }
                     } catch { /* keep polling */ }
                 }, 3000);
             } else {
                 log.textContent += `${d.message || JSON.stringify(d)}\n`;
                 if (d.results) renderBacktest(d.results, resultsDiv);
-                btn.disabled = false; btn.classList.remove('!border-warn', '!text-warn', '!bg-warn-soft', 'animate-pulse-slow'); btn.textContent = 'Run Backtest';
+                btn.disabled = false; btn.classList.remove('animate-pulse-slow'); btn.textContent = 'Run Backtest';
             }
         } catch (e) {
-            log.textContent += `\u2718 Error: ${e.message}\n`;
-            btn.disabled = false; btn.classList.remove('!border-warn', '!text-warn', '!bg-warn-soft', 'animate-pulse-slow'); btn.textContent = 'Run Backtest';
+            log.textContent += `✘ Error: ${e.message}\n`;
+            btn.disabled = false; btn.classList.remove('animate-pulse-slow'); btn.textContent = 'Run Backtest';
         }
 
         log.scrollTop = log.scrollHeight;
@@ -663,29 +618,29 @@
     function renderBacktest(r, resultsDiv) {
         let html = `<div class="font-bold text-accent mb-3 text-sm">Backtest Results (${r.start_date} to ${r.end_date})</div>`;
         html += `<div class="flex gap-3 flex-wrap mb-3 text-[12px]">
-            <span class="text-muted"><strong class="text-white">${r.total_picks}</strong> picks</span>
-            <span class="text-muted"><strong class="text-white">${r.accuracy != null ? (r.accuracy * 100).toFixed(1) + '%' : 'N/A'}</strong> accuracy</span>
-            <span class="text-muted"><strong class="text-white">${r.roi !== null ? r.roi.toFixed(1) + '%' : 'N/A'}</strong> ROI</span>
-            <span class="text-muted"><strong class="text-white">${r.perfect_matchdays}/${r.total_matchdays}</strong> perfect days</span>
-            <span class="text-muted"><strong class="text-white">${r.avg_edge !== null ? (r.avg_edge * 100).toFixed(1) + '%' : 'N/A'}</strong> avg edge</span>
+            <span class="text-ink-muted"><strong class="text-ink">${r.total_picks}</strong> picks</span>
+            <span class="text-ink-muted"><strong class="text-ink">${r.accuracy != null ? (r.accuracy * 100).toFixed(1) + '%' : 'N/A'}</strong> accuracy</span>
+            <span class="text-ink-muted"><strong class="text-ink">${r.roi !== null ? r.roi.toFixed(1) + '%' : 'N/A'}</strong> ROI</span>
+            <span class="text-ink-muted"><strong class="text-ink">${r.perfect_matchdays}/${r.total_matchdays}</strong> perfect days</span>
+            <span class="text-ink-muted"><strong class="text-ink">${r.avg_edge !== null ? (r.avg_edge * 100).toFixed(1) + '%' : 'N/A'}</strong> avg edge</span>
         </div>`;
 
         if (r.by_bet_type) {
-            html += '<div class="flex gap-3 flex-wrap mb-3 text-[12px]"><strong class="text-white">By Bet Type:</strong>';
+            html += '<div class="flex gap-3 flex-wrap mb-3 text-[12px]"><strong class="text-ink">By Bet Type:</strong>';
             for (const [type, stats] of Object.entries(r.by_bet_type)) {
-                html += ` <span class="text-muted">${type}: ${stats.correct || 0}/${stats.total || 0} (${stats.accuracy != null ? (stats.accuracy * 100).toFixed(0) + '%' : 'N/A'})</span>`;
+                html += ` <span class="text-ink-muted">${type}: ${stats.correct || 0}/${stats.total || 0} (${stats.accuracy != null ? (stats.accuracy * 100).toFixed(0) + '%' : 'N/A'})</span>`;
             }
             html += '</div>';
         }
 
         if (r.matchday_results && r.matchday_results.length > 0) {
-            html += '<div class="mt-3 text-[12px]"><strong class="text-white">Per Matchday:</strong><div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5 mt-2">';
+            html += '<div class="mt-3 text-[12px]"><strong class="text-ink">Per Matchday:</strong><div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5 mt-2">';
             for (const day of r.matchday_results) {
-                const cls = day.all_correct ? 'bg-ok-soft border-[rgba(34,197,94,0.2)]' : (day.accuracy >= 0.6 ? 'bg-accent-soft border-[rgba(79,143,255,0.15)]' : 'bg-danger-soft border-[rgba(239,68,68,0.15)]');
-                html += `<div class="flex justify-between px-2.5 py-1.5 rounded-md text-[11px] border ${cls}">
-                    <span class="text-muted">${day.date}</span>
+                const cls = day.all_correct ? 'border-ok/40' : (day.accuracy >= 0.6 ? 'border-accent/40' : 'border-danger/40');
+                html += `<div class="flex justify-between px-2.5 py-1.5 text-[11px] border ${cls}">
+                    <span class="text-ink-muted">${day.date}</span>
                     <span class="font-bold">${day.correct_picks}/${day.total_picks}</span>
-                    <span class="text-muted">${(day.profit || 0) >= 0 ? '+' : ''}${(day.profit || 0).toFixed(2)}</span>
+                    <span class="text-ink-muted">${(day.profit || 0) >= 0 ? '+' : ''}${(day.profit || 0).toFixed(2)}</span>
                 </div>`;
             }
             html += '</div></div>';
@@ -705,24 +660,26 @@
 
             const fmt = (info, label, extra) => {
                 const s = info?.status;
-                const dotClass = s === 'ok' ? 'bg-ok shadow-[0_0_6px_#22c55e]' : s === 'error' ? 'bg-danger shadow-[0_0_6px_#ef4444]' : s === 'running' ? 'bg-warn animate-pulse-slow' : 'bg-faint';
-                const lastRun = info?.last_run ? `Last: ${info.last_run}` : 'Never run';
-                const extraText = extra ? ` \u00B7 ${extra}` : '';
-                return `<span class="flex items-center gap-2 text-[11px] text-muted">
-                    <span class="w-1.5 h-1.5 rounded-full ${dotClass} shrink-0"></span>
-                    <span><strong class="text-white">${label}</strong> \u2014 ${lastRun}${extraText}</span>
+                const statusText = s === 'ok' ? 'OK' : s === 'error' ? 'ERROR' : s === 'running' ? 'RUNNING' : 'IDLE';
+                const statusCls = s === 'ok' ? 'text-ok' : s === 'error' ? 'text-danger' : s === 'running' ? 'text-accent' : 'text-ink-faint';
+                const lastRun = info?.last_run ? info.last_run : '—';
+                const extraText = extra ? ` · ${extra}` : '';
+                return `<span class="flex items-baseline gap-2">
+                    <span class="text-ink-faint uppercase tracking-[0.18em] text-[10px] font-sans">${label}</span>
+                    <span class="${statusCls}">${statusText}</span>
+                    <span class="text-ink-muted">${lastRun}${extraText}</span>
                 </span>`;
             };
 
-            const nextRun = d.pipeline?.next_run ? `Next: ${d.pipeline.next_run}` : '';
-            const retrainAction = d.retrain?.action === 'retrained' ? 'Retrained' : d.retrain?.action === 'none' ? 'No change' : '';
+            const nextRun = d.pipeline?.next_run ? `next ${d.pipeline.next_run}` : '';
+            const retrainAction = d.retrain?.action === 'retrained' ? 'retrained' : d.retrain?.action === 'none' ? 'no change' : '';
 
             el.innerHTML =
-                fmt(d.pipeline, 'Data Pipeline', nextRun) +
+                fmt(d.pipeline, 'Pipeline', nextRun) +
                 fmt(d.outcomes, 'Outcomes', '') +
                 fmt(d.retrain, 'Model', retrainAction);
         } catch {
-            el.innerHTML = '<span class="flex items-center gap-2 text-[11px] text-muted"><span class="w-1.5 h-1.5 rounded-full bg-faint"></span>Status unavailable</span>';
+            el.innerHTML = '<span class="text-ink-muted">Status unavailable</span>';
         }
     }
 
@@ -739,12 +696,12 @@
             const res = await fetch(`${API_BASE}/performance/paper-trading`);
             const d = await res.json();
             if (d.error) {
-                document.getElementById('ptSummary').innerHTML = `<div class="text-center py-4 text-muted text-sm col-span-full">${d.message || 'No data yet.'}</div>`;
+                document.getElementById('ptSummary').innerHTML = `<div class="text-center py-6 text-ink-muted text-sm col-span-full">${d.message || 'No data yet.'}</div>`;
                 return;
             }
             renderPaperTrading(d);
         } catch (e) {
-            document.getElementById('ptSummary').innerHTML = `<div class="text-center py-4 text-danger text-sm col-span-full">Failed to load: ${e.message}</div>`;
+            document.getElementById('ptSummary').innerHTML = `<div class="text-center py-6 text-danger text-sm col-span-full">Failed to load: ${e.message}</div>`;
         }
     }
 
@@ -760,28 +717,29 @@
         const profitColor = profit >= 0 ? 'text-ok' : 'text-danger';
         const roiColor = (roi || 0) >= 0 ? 'text-ok' : 'text-danger';
         const streakCur = streak.current || '—';
+        const streakColor = streakCur.startsWith('W') ? 'text-ok' : streakCur.startsWith('L') ? 'text-danger' : 'text-ink';
 
-        // Summary cards
+        // Summary band
         document.getElementById('ptSummary').innerHTML = `
-            <div class="bg-surface border border-dim rounded-xl px-4 py-3 text-center">
-                <div class="text-[10px] font-semibold uppercase tracking-wider text-faint mb-1">Bankroll</div>
-                <div class="text-xl font-bold ${profitColor}">${bankroll.toFixed(1)}</div>
-                <div class="text-[10px] text-muted">Started at ${d.starting_bankroll || 100}</div>
+            <div class="px-5 py-5">
+                <div class="text-[10px] text-ink-faint uppercase tracking-[0.22em] mb-2">Bankroll</div>
+                <div class="font-mono text-[26px] tabular-nums ${profitColor} leading-none">${bankroll.toFixed(1)}</div>
+                <div class="text-[10px] text-ink-faint uppercase tracking-[0.18em] mt-2">Start ${d.starting_bankroll || 100}</div>
             </div>
-            <div class="bg-surface border border-dim rounded-xl px-4 py-3 text-center">
-                <div class="text-[10px] font-semibold uppercase tracking-wider text-faint mb-1">ROI</div>
-                <div class="text-xl font-bold ${roiColor}">${roi != null ? roi.toFixed(1) + '%' : 'N/A'}</div>
-                <div class="text-[10px] text-muted">P&L: ${profit >= 0 ? '+' : ''}${profit.toFixed(2)}u</div>
+            <div class="px-5 py-5">
+                <div class="text-[10px] text-ink-faint uppercase tracking-[0.22em] mb-2">Return</div>
+                <div class="font-mono text-[26px] tabular-nums ${roiColor} leading-none">${roi != null ? roi.toFixed(1) + '%' : '—'}</div>
+                <div class="text-[10px] text-ink-faint uppercase tracking-[0.18em] mt-2">P&amp;L ${profit >= 0 ? '+' : ''}${profit.toFixed(2)}u</div>
             </div>
-            <div class="bg-surface border border-dim rounded-xl px-4 py-3 text-center">
-                <div class="text-[10px] font-semibold uppercase tracking-wider text-faint mb-1">Win Rate</div>
-                <div class="text-xl font-bold text-white">${accuracy != null ? (accuracy * 100).toFixed(1) + '%' : 'N/A'}</div>
-                <div class="text-[10px] text-muted">${wins}W / ${losses}L${pending ? ` / ${pending} pending` : ''}</div>
+            <div class="px-5 py-5">
+                <div class="text-[10px] text-ink-faint uppercase tracking-[0.22em] mb-2">Win Rate</div>
+                <div class="font-mono text-[26px] tabular-nums text-ink leading-none">${accuracy != null ? (accuracy * 100).toFixed(1) + '%' : '—'}</div>
+                <div class="text-[10px] text-ink-faint uppercase tracking-[0.18em] mt-2">${wins}W · ${losses}L${pending ? ` · ${pending} pending` : ''}</div>
             </div>
-            <div class="bg-surface border border-dim rounded-xl px-4 py-3 text-center">
-                <div class="text-[10px] font-semibold uppercase tracking-wider text-faint mb-1">Streak</div>
-                <div class="text-xl font-bold ${streakCur.startsWith('W') ? 'text-ok' : streakCur.startsWith('L') ? 'text-danger' : 'text-muted'}">${streakCur}</div>
-                <div class="text-[10px] text-muted">Best W${streak.best_win || 0} / Worst L${streak.worst_loss || 0}</div>
+            <div class="px-5 py-5">
+                <div class="text-[10px] text-ink-faint uppercase tracking-[0.22em] mb-2">Streak</div>
+                <div class="font-mono text-[26px] tabular-nums ${streakColor} leading-none">${streakCur}</div>
+                <div class="text-[10px] text-ink-faint uppercase tracking-[0.18em] mt-2">Best W${streak.best_win || 0} · Worst L${streak.worst_loss || 0}</div>
             </div>
         `;
 
@@ -789,23 +747,25 @@
         let breakdownHtml = '';
         for (const [type, stats] of Object.entries(d.by_type || {})) {
             const label = type === 'STRAIGHT_WIN' ? 'Straight Win' : 'Double Chance';
+            const sROI = stats.roi;
+            const sROIColor = (sROI || 0) >= 0 ? 'text-ok' : 'text-danger';
             breakdownHtml += `
-                <div class="bg-surface border border-dim rounded-xl px-4 py-3">
-                    <div class="text-[11px] font-semibold uppercase tracking-wider text-muted mb-2">${label}</div>
-                    <div class="flex justify-between text-[12px]">
-                        <span class="text-muted">Record</span>
-                        <span class="font-bold">${stats.wins || 0}/${stats.total || 0} (${((stats.accuracy || 0) * 100).toFixed(0)}%)</span>
+                <div class="px-5 py-5">
+                    <div class="text-[10px] text-ink-faint uppercase tracking-[0.22em] mb-3">${label}</div>
+                    <div class="flex justify-between font-mono text-[12px] tabular-nums mb-1.5">
+                        <span class="text-ink-muted font-sans text-[11px] uppercase tracking-[0.15em]">Record</span>
+                        <span class="text-ink">${stats.wins || 0}/${stats.total || 0} · ${((stats.accuracy || 0) * 100).toFixed(0)}%</span>
                     </div>
-                    <div class="flex justify-between text-[12px] mt-1">
-                        <span class="text-muted">ROI</span>
-                        <span class="font-bold ${(stats.roi || 0) >= 0 ? 'text-ok' : 'text-danger'}">${stats.roi != null ? stats.roi.toFixed(1) + '%' : 'N/A'}</span>
+                    <div class="flex justify-between font-mono text-[12px] tabular-nums">
+                        <span class="text-ink-muted font-sans text-[11px] uppercase tracking-[0.15em]">Return</span>
+                        <span class="${sROIColor}">${sROI != null ? sROI.toFixed(1) + '%' : '—'}</span>
                     </div>
                 </div>
             `;
         }
-        document.getElementById('ptBreakdown').innerHTML = breakdownHtml;
+        document.getElementById('ptBreakdown').innerHTML = breakdownHtml || '<div class="px-5 py-5 text-ink-muted text-sm col-span-full text-center">No breakdown yet.</div>';
 
-        // Equity curve (inline SVG)
+        // Equity curve
         renderEquityCurve(d.equity_curve);
 
         // Recent results
@@ -813,29 +773,30 @@
             document.getElementById('ptResults').innerHTML = d.recent_results.slice().reverse().map(r => {
                 const isWin = r.outcome === 'WIN';
                 const isVoid = r.outcome === 'VOID';
-                const cls = isWin ? 'border-[rgba(34,197,94,0.15)] bg-ok-soft' : isVoid ? 'border-dim bg-surface' : 'border-[rgba(239,68,68,0.15)] bg-danger-soft';
-                const icon = isWin ? '<span class="text-ok font-bold">W</span>' : isVoid ? '<span class="text-muted font-bold">V</span>' : '<span class="text-danger font-bold">L</span>';
+                const letter = isWin ? 'W' : isVoid ? 'V' : 'L';
+                const letterCls = isWin ? 'text-ok' : isVoid ? 'text-ink-muted' : 'text-danger';
                 const rProfit = r.profit || 0;
-                const profitText = rProfit >= 0 ? `<span class="text-ok">+${rProfit.toFixed(2)}</span>` : `<span class="text-danger">${rProfit.toFixed(2)}</span>`;
+                const profitCls = rProfit >= 0 ? 'text-ok' : 'text-danger';
+                const profitTxt = `${rProfit >= 0 ? '+' : ''}${rProfit.toFixed(2)}`;
                 const label = r.pick_type === 'STRAIGHT_WIN' ? '1X2' : 'DC';
-                return `<div class="flex items-center justify-between px-3 py-2 rounded-lg border ${cls} text-[12px]">
-                    <span class="w-6">${icon}</span>
-                    <span class="text-muted flex-1 mx-2">${r.date || ''}</span>
-                    <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-surface border border-dim text-muted mr-2">${label}</span>
-                    <span class="font-medium mr-2">${r.pick_value || ''}</span>
-                    <span class="text-muted mr-2">${r.odds ? '@' + r.odds.toFixed(2) : ''}</span>
-                    <span class="font-bold w-14 text-right">${profitText}</span>
+                return `<div class="grid grid-cols-[24px_90px_50px_1fr_70px_70px] gap-3 items-center px-1 py-2.5 border-b border-rule font-mono text-[12px] tabular-nums">
+                    <span class="${letterCls} font-medium">${letter}</span>
+                    <span class="text-ink-muted">${r.date || ''}</span>
+                    <span class="text-accent uppercase tracking-[0.18em] text-[10px] font-sans">${label}</span>
+                    <span class="text-ink">${r.pick_value || ''}</span>
+                    <span class="text-ink-muted text-right">${r.odds ? '@ ' + r.odds.toFixed(2) : ''}</span>
+                    <span class="${profitCls} text-right">${profitTxt}</span>
                 </div>`;
             }).join('');
         } else {
-            document.getElementById('ptResults').innerHTML = '<div class="text-center py-4 text-muted text-sm">No settled picks yet.</div>';
+            document.getElementById('ptResults').innerHTML = '<div class="text-center py-6 text-ink-muted text-sm">No settled picks yet.</div>';
         }
     }
 
     function renderEquityCurve(curve) {
         const container = document.getElementById('ptChart');
         if (!curve || curve.length === 0) {
-            container.innerHTML = '<div class="text-center py-16 text-muted text-sm">No data yet</div>';
+            container.innerHTML = '<div class="text-center py-16 text-ink-muted text-sm">No data yet</div>';
             return;
         }
 
@@ -853,32 +814,27 @@
 
         const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
         const lastVal = values[values.length - 1];
-        const lineColor = lastVal >= 100 ? '#22c55e' : '#ef4444';
+        const lineColor = lastVal >= 100 ? '#7cc282' : '#d97070';
         const baseY = h - pad - ((100 - minV) / range) * (h - pad * 2);
 
-        // Y-axis labels
         const yLabels = [minV, 100, maxV].map(v => {
             const y = h - pad - ((v - minV) / range) * (h - pad * 2);
-            return `<text x="${pad - 4}" y="${y + 3}" text-anchor="end" fill="#7c8494" font-size="9">${v.toFixed(0)}</text>`;
+            return `<text x="${pad - 6}" y="${y + 3}" text-anchor="end" fill="#52535a" font-size="9" font-family="JetBrains Mono, monospace">${v.toFixed(0)}</text>`;
         }).join('');
 
-        // X-axis labels (first, middle, last)
         const xIndices = [0, Math.floor(curve.length / 2), curve.length - 1];
         const xLabels = [...new Set(xIndices)].map(i => {
             const p = points[i];
-            const label = (curve[i].date || '').slice(5); // MM-DD
-            return `<text x="${p.x}" y="${h - 5}" text-anchor="middle" fill="#7c8494" font-size="9">${label}</text>`;
+            const label = (curve[i].date || '').slice(5);
+            return `<text x="${p.x}" y="${h - 8}" text-anchor="middle" fill="#52535a" font-size="9" font-family="JetBrains Mono, monospace">${label}</text>`;
         }).join('');
 
         container.innerHTML = `
             <svg viewBox="0 0 ${w} ${h}" class="w-full h-full" preserveAspectRatio="none">
-                <!-- Baseline at 100 -->
-                <line x1="${pad}" y1="${baseY}" x2="${w - pad}" y2="${baseY}" stroke="#3d4452" stroke-width="0.5" stroke-dasharray="4,4" />
-                <!-- Curve -->
-                <path d="${pathD}" fill="none" stroke="${lineColor}" stroke-width="2" stroke-linejoin="round" />
-                <!-- Dots at start/end -->
-                <circle cx="${points[0].x}" cy="${points[0].y}" r="3" fill="${lineColor}" />
-                <circle cx="${points[points.length-1].x}" cy="${points[points.length-1].y}" r="4" fill="${lineColor}" stroke="white" stroke-width="1" />
+                <line x1="${pad}" y1="${baseY}" x2="${w - pad}" y2="${baseY}" stroke="#1f2026" stroke-width="0.5" stroke-dasharray="3,4" />
+                <path d="${pathD}" fill="none" stroke="${lineColor}" stroke-width="1" stroke-linejoin="round" />
+                <circle cx="${points[0].x}" cy="${points[0].y}" r="2" fill="${lineColor}" />
+                <circle cx="${points[points.length-1].x}" cy="${points[points.length-1].y}" r="3" fill="${lineColor}" />
                 ${yLabels}
                 ${xLabels}
             </svg>
